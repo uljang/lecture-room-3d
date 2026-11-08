@@ -30,6 +30,15 @@
   #views button{background:transparent;color:var(--hud-fg);border:0;border-radius:8px;padding:8px 13px;font:inherit;font-size:13px;cursor:pointer}
   #views button:hover{background:rgba(255,255,255,.12)}
   #views button.on{background:var(--accent)}
+  #teacher{position:fixed;top:calc(92px + env(safe-area-inset-top,0px));right:calc(16px + env(safe-area-inset-right,0px));padding:10px 12px;font-size:12px;width:150px;box-sizing:border-box}
+  #teacher .t-head{font-weight:700;font-size:13px}
+  #teacher .t-status{color:var(--hud-sub);margin:2px 0 8px;min-height:1.4em}
+  #teacher .t-btns{display:grid;grid-template-columns:1fr 1fr;gap:4px}
+  #teacher button{background:rgba(255,255,255,.08);color:var(--hud-fg);border:0;border-radius:6px;padding:6px 4px;font:inherit;cursor:pointer}
+  #teacher button:hover{background:rgba(255,255,255,.18)}
+  #teacher button.on{background:var(--accent)}
+  #teacher label{display:flex;align-items:center;gap:6px;margin-top:8px;color:var(--hud-sub);cursor:pointer}
+  button:focus-visible,#teacher input:focus-visible{outline:2px solid #9cc2ff;outline-offset:2px}
   @media (max-width:600px){
     #info{max-width:calc(100vw - 150px);font-size:12px;padding:10px 12px}
     #views button{padding:7px 9px;font-size:12px}
@@ -45,6 +54,17 @@
   <div class="toggle" id="infoToggle">도움말 접기</div>
 </div>
 <div id="compass" class="panel"><b id="dirName">정면</b><span id="dirDeg">0°</span></div>
+<div id="teacher" class="panel">
+  <div class="t-head">교수님</div>
+  <div class="t-status" id="tStatus">아바타 불러오는 중…</div>
+  <div class="t-btns">
+    <button data-anim="Idle">대기</button>
+    <button data-anim="Talking">설명</button>
+    <button data-anim="Waving">손 흔들기</button>
+    <button data-anim="Pointing">가리키기</button>
+  </div>
+  <label><input type="checkbox" id="tAuto" checked> 자동 강의</label>
+</div>
 <div id="views" class="panel">
   <button data-yaw="90">◀ 창가</button>
   <button data-yaw="0" class="on">칠판</button>
@@ -54,6 +74,7 @@
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
 <script>
 (() => {
 'use strict';
@@ -357,6 +378,8 @@ const M = {
   clock: std(0xffffff, { map: clockTex, roughness: 0.4 }),
 };
 
+const clickTargets = {};
+
 /* ---------- 방 ---------- */
 const room = new THREE.Group(); scene.add(room);
 {
@@ -423,7 +446,7 @@ const room = new THREE.Group(); scene.add(room);
 {
   const bw = 4.8, bh = 1.25, bx = 0, by = 1.45, bz = FRONT + 0.03;
   room.add(box(bw + 0.08, bh + 0.08, 0.035, M.aluDark, bx, by, FRONT + 0.0175));
-  room.add(mesh(new THREE.PlaneGeometry(bw, bh), M.board, bx, by, bz + 0.007, { cast: false }));
+  const boardMesh = mesh(new THREE.PlaneGeometry(bw, bh), M.board, bx, by, bz + 0.007, { cast: false }); room.add(boardMesh); clickTargets.board = boardMesh;
   room.add(box(bw, 0.03, 0.09, M.aluDark, bx, by - bh/2 - 0.05, FRONT + 0.06));
   [[0x1c1f24, -1.2], [0x1d4fb8, -1.05], [0xc62828, -0.9], [0x1c1f24, 0.4]].forEach(([c, x]) => {
     const mk = mesh(new THREE.CylinderGeometry(0.009, 0.009, 0.13, 10), std(c, { roughness: .4 }), bx + x, by - bh/2 - 0.025, FRONT + 0.06);
@@ -435,7 +458,7 @@ const room = new THREE.Group(); scene.add(room);
   const sw = 2.6, sh = sw*10/16, sx = 0, sTop = 2.55, sz = FRONT + 0.32;   // 화이트보드 바로 앞으로 내려온 스크린
   room.add(box(sw + 0.24, 0.12, 0.14, M.white, sx, H - 0.08, sz));
   room.add(box(0.008, sTop > 0 ? H - 0.14 - sTop : 0.1, 0.004, M.black, sx, (H - 0.14 + sTop)/2, sz, { cast: false }));
-  room.add(mesh(new THREE.PlaneGeometry(sw, sh), M.screen, sx, sTop - sh/2, sz, { cast: false, receive: false }));
+  const screenMesh = mesh(new THREE.PlaneGeometry(sw, sh), M.screen, sx, sTop - sh/2, sz, { cast: false, receive: false }); room.add(screenMesh); clickTargets.screen = screenMesh;
   room.add(box(sw + 0.04, 0.03, 0.03, M.black, sx, sTop - sh - 0.015, sz));
   // 천장 프로젝터
   const pz = -3.0;
@@ -578,7 +601,7 @@ camera.position.set(window.__mySeat.x, view.y, window.__mySeat.z);
 const PITCH_MIN = -1.25, PITCH_MAX = 1.2;
 const clampPitch = () => { view.tpitch = Math.max(PITCH_MIN, Math.min(PITCH_MAX, view.tpitch)); };
 let drag = null;
-canvas.addEventListener('pointerdown', e => { drag = { x: e.clientX, y: e.clientY }; canvas.setPointerCapture(e.pointerId); canvas.classList.add('drag'); });
+canvas.addEventListener('pointerdown', e => { drag = { x: e.clientX, y: e.clientY, sx: e.clientX, sy: e.clientY }; canvas.setPointerCapture(e.pointerId); canvas.classList.add('drag'); });
 canvas.addEventListener('pointermove', e => {
   if (!drag) return;
   const k = 0.0042 * (camera.fov / 65);
@@ -587,7 +610,7 @@ canvas.addEventListener('pointermove', e => {
   clampPitch(); drag.x = e.clientX; drag.y = e.clientY;
 });
 const endDrag = () => { drag = null; canvas.classList.remove('drag'); };
-canvas.addEventListener('pointerup', endDrag); canvas.addEventListener('pointercancel', endDrag);
+canvas.addEventListener('pointerup', e => { if (drag && Math.hypot(e.clientX - drag.sx, e.clientY - drag.sy) < 6) onSceneClick(e); endDrag(); }); canvas.addEventListener('pointercancel', endDrag);
 canvas.addEventListener('wheel', e => { e.preventDefault(); view.tfov = Math.max(28, Math.min(80, view.tfov + e.deltaY*0.03)); }, { passive: false });
 
 const keys = new Set();
@@ -627,6 +650,226 @@ window.addEventListener('resize', () => {
   renderer.setSize(window.innerWidth, window.innerHeight);
 });
 
+/* ---------- 교수 아바타 (teacher.glb) ---------- */
+const TEACHER_URL = 'teacher_web.glb';            // teacher.glb 의 웹용 경량 사본 (텍스처만 축소)
+const TEACHER_HEIGHT = 1.72;                      // 실제 사람 키 (m)
+const TEACHER_POS = new THREE.Vector3(2.1, 0, FRONT + 0.95);   // 교탁 옆, 칠판 앞
+const ANIM_KEYS = ['Idle', 'Talking', 'Waving', 'Pointing'];
+const ANIM_ALIASES = {
+  Idle: ['idle', 'breath', 'standing'],
+  Talking: ['talking', 'talk', 'speak', 'explain'],
+  Waving: ['waving', 'wave', 'greet', 'hello'],
+  Pointing: ['pointing', 'point'],
+};
+const ANIM_LABEL = { Idle: '대기 중', Talking: '설명하는 중', Waving: '손 흔드는 중', Pointing: '스크린을 가리키는 중' };
+// 자동 강의 순서: [동작, 초]  (0초 = 한 번 끝까지 재생 후 다음으로)
+const AUTO_PLAN = [['Idle', 5], ['Talking', 8], ['Pointing', 0], ['Talking', 7], ['Idle', 4], ['Talking', 6]];
+
+const teacher = { model: null, mixer: null, actions: {}, current: null, key: null, auto: true, step: -1, timer: 0, waitFinish: false };
+const tStatus = document.getElementById('tStatus');
+const tButtons = [...document.querySelectorAll('#teacher button[data-anim]')];
+const tAuto = document.getElementById('tAuto');
+
+function buildTeacher(gltf) {
+  const clips = gltf.animations;
+  console.log('[teacher.glb] 애니메이션 ' + clips.length + '개:', clips.map(c => c.name));
+  clips.forEach((c, i) => console.log(`  ${i + 1}. ${c.name}  (${c.duration.toFixed(2)}초)`));
+
+  const model = gltf.scene;
+  model.traverse(o => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; o.frustumCulled = false; } });
+  model.updateMatrixWorld(true);
+
+  let skinned = null; model.traverse(o => { if (o.isSkinnedMesh && !skinned) skinned = o; });
+  const bones = skinned ? skinned.skeleton.bones : [];
+  const bone = n => model.getObjectByName('mixamorig' + n) || model.getObjectByName('mixamorig:' + n) || model.getObjectByName(n);
+  const rest = bones.map(b => b.quaternion.clone());
+
+  // 아바타의 앞/왼쪽 방향을 발 → 발끝 방향으로 계산
+  const UPV = new THREE.Vector3(0, 1, 0);
+  let F = new THREE.Vector3(0, 0, 1);
+  const foot = bone('LeftFoot'), toe = bone('LeftToeBase');
+  if (foot && toe) { const d = toe.getWorldPosition(new THREE.Vector3()).sub(foot.getWorldPosition(new THREE.Vector3())); d.y = 0; if (d.lengthSq() > 1e-8) F = d.normalize(); }
+  const L = new THREE.Vector3().crossVectors(UPV, F).normalize();
+  const dir = (l, u, f) => new THREE.Vector3().addScaledVector(L, l).addScaledVector(UPV, u).addScaledVector(F, f).normalize();
+
+  // ---- 절차적 포즈 도구 (GLB에 없는 동작을 만들 때 사용) ----
+  const resetRest = () => { bones.forEach((b, i) => b.quaternion.copy(rest[i])); model.updateMatrixWorld(true); };
+  const worldDelta = (b, delta) => {
+    const wq = b.getWorldQuaternion(new THREE.Quaternion());
+    const pq = b.parent.getWorldQuaternion(new THREE.Quaternion()).invert();
+    b.quaternion.copy(pq.multiply(delta.multiply(wq)));
+    model.updateMatrixWorld(true);
+  };
+  const aim = (name, childName, d) => {
+    const b = bone(name), c = bone(childName); if (!b || !c) return;
+    const cur = c.getWorldPosition(new THREE.Vector3()).sub(b.getWorldPosition(new THREE.Vector3())).normalize();
+    worldDelta(b, new THREE.Quaternion().setFromUnitVectors(cur, d));
+  };
+  const turn = (name, axis, ang) => { const b = bone(name); if (b) worldDelta(b, new THREE.Quaternion().setFromAxisAngle(axis, ang)); };
+  const pose = fn => { resetRest(); fn(); return bones.map(b => b.quaternion.clone()); };
+  const clipFrom = (name, times, poses) => new THREE.AnimationClip(name, times[times.length - 1], bones.map((b, i) => {
+    const v = []; poses.forEach(p => v.push(p[i].x, p[i].y, p[i].z, p[i].w));
+    return new THREE.QuaternionKeyframeTrack(b.name + '.quaternion', times, v);
+  }));
+
+  const leftDown = (s = 0) => {
+    aim('LeftArm', 'LeftForeArm', dir(0.2 + s, -1, 0.03));
+    aim('LeftForeArm', 'LeftHand', dir(0.1, -1, 0.25 + s));
+    aim('LeftHand', 'LeftHandMiddle1', dir(0.06, -1, 0.15));
+  };
+  const rightDown = (s = 0) => {
+    aim('RightArm', 'RightForeArm', dir(-0.2 - s, -1, 0.03));
+    aim('RightForeArm', 'RightHand', dir(-0.1, -1, 0.25 + s));
+    aim('RightHand', 'RightHandMiddle1', dir(-0.06, -1, 0.15));
+  };
+  const base = (breath = 0, head = 0, sway = 0) => {
+    turn('Hips', F, sway);
+    turn('Spine2', L, -breath);
+    turn('Neck', UPV, head);
+    leftDown(breath * 0.6); rightDown(breath * 0.6);
+  };
+
+  const generated = {
+    Idle: () => {   // 숨쉬기 + 가벼운 체중 이동 + 고개를 좌우로 둘러봄
+      const p0 = pose(() => base(0, 0, 0)), p1 = pose(() => base(0.03, 0.12, 0.015)), p2 = pose(() => base(0, 0.02, 0)), p3 = pose(() => base(0.03, -0.12, -0.015));
+      return clipFrom('Idle (자동 생성)', [0, 2, 4, 6, 8], [p0, p1, p2, p3, p0]);
+    },
+    Talking: () => {
+      const g = (a, b2, h) => pose(() => { base(0.02, h, 0);
+        aim('RightArm', 'RightForeArm', dir(-0.35, -0.8, 0.35)); aim('RightForeArm', 'RightHand', dir(-0.2 - a, 0.1, 1));
+        aim('LeftArm', 'LeftForeArm', dir(0.35, -0.8, 0.35)); aim('LeftForeArm', 'LeftHand', dir(0.2 + b2, 0.1, 1)); });
+      const p0 = pose(() => base());
+      return clipFrom('Talking (자동 생성)', [0, .6, 1.3, 2, 2.7, 3.4], [p0, g(.2, 0, .1), g(-.1, .3, -.05), g(.3, .1, .08), g(0, .25, -.1), p0]);
+    },
+    Waving: () => {  // 오른팔을 들고 손을 좌우로 흔듦
+      const w = side => pose(() => { base(0.02, -0.05, 0); leftDown();
+        aim('RightArm', 'RightForeArm', dir(-0.8, 0.45, 0.3));
+        aim('RightForeArm', 'RightHand', dir(-0.15 + side, 1, 0.15));
+        aim('RightHand', 'RightHandMiddle1', dir(-0.1 + side, 1, 0.1)); });
+      const p0 = pose(() => base());
+      return clipFrom('Waving (자동 생성)', [0, .5, .85, 1.2, 1.55, 1.9, 2.25, 2.9], [p0, w(-.35), w(.35), w(-.35), w(.35), w(-.35), w(.2), p0]);
+    },
+    Pointing: () => {  // 몸과 고개를 스크린 쪽으로 돌리고 오른팔로 가리킴
+      const pt = pose(() => { base(0.02, 0, 0); turn('Spine1', UPV, -0.28); turn('Neck', UPV, -0.55); leftDown();
+        aim('RightArm', 'RightForeArm', dir(-1, 0.32, -0.3));
+        aim('RightForeArm', 'RightHand', dir(-1, 0.34, -0.32));
+        aim('RightHand', 'RightHandMiddle1', dir(-1, 0.34, -0.32)); });
+      const p0 = pose(() => base());
+      return clipFrom('Pointing (자동 생성)', [0, .7, 3.0, 3.8], [p0, pt, pt, p0]);
+    },
+  };
+
+  // ---- 이름으로 클립 찾기 (정확한 이름 → 비슷한 이름 → 없으면 자동 생성) ----
+  const findClip = key => {
+    const lower = clips.map(c => c.name.toLowerCase());
+    let i = lower.indexOf(key.toLowerCase());
+    if (i < 0) i = lower.findIndex(n => ANIM_ALIASES[key].some(a => n.includes(a)));
+    return i >= 0 ? clips[i] : null;
+  };
+  const chosen = {};
+  ANIM_KEYS.forEach(key => {
+    const found = findClip(key);
+    if (found) {
+      const c = found.clone();
+      // 제자리에서 움직이도록 엉덩이의 수평 이동 고정
+      c.tracks.forEach(t => { if (/Hips\.position$/.test(t.name)) for (let k = 0; k < t.values.length; k += 3) { t.values[k] = t.values[0]; t.values[k + 2] = t.values[2]; } });
+      chosen[key] = c;
+      console.log(`[teacher] ${key} → GLB 클립 "${found.name}" 사용`);
+    } else {
+      chosen[key] = generated[key]();
+      console.log(`[teacher] ${key} → GLB에 없음, 비슷한 모션을 자동 생성`);
+    }
+  });
+  resetRest();
+
+  // ---- 크기 · 위치 · 방향 ----
+  const box = new THREE.Box3().setFromObject(model);
+  const h = box.max.y - box.min.y;
+  const scale = h > 0 ? TEACHER_HEIGHT / h : 1;
+  const holder = new THREE.Group();
+  model.scale.setScalar(scale);
+  model.position.y = -box.min.y * scale;
+  holder.add(model);
+  holder.position.copy(TEACHER_POS);
+  // 아바타 정면(F)을 학생 쪽(+z)으로, 살짝 강의실 가운데를 향하게
+  holder.rotation.y = -Math.atan2(F.x, F.z) - 0.25;
+  scene.add(holder);
+  console.log(`[teacher] 원래 높이 ${h.toFixed(3)} → 배율 ${scale.toFixed(3)} (키 ${TEACHER_HEIGHT}m)`);
+
+  const mixer = new THREE.AnimationMixer(model);
+  ANIM_KEYS.forEach(k => { teacher.actions[k] = mixer.clipAction(chosen[k]); });
+  mixer.addEventListener('finished', e => { if (e.action === teacher.current) { if (teacher.auto) nextAuto(); else playAnim('Idle'); } });
+  Object.assign(teacher, { model: holder, mixer });
+
+  playAnim('Waving', true);          // 처음엔 학생들에게 인사
+  teacher.waitFinish = true; teacher.step = -1;
+}
+
+function playAnim(key, once) {
+  const a = teacher.actions[key]; if (!a) return;
+  once = once !== undefined ? once : (key === 'Waving' || key === 'Pointing');
+  if (teacher.current === a && !once) return;
+  a.reset();
+  a.setLoop(once ? THREE.LoopOnce : THREE.LoopRepeat, Infinity);
+  a.clampWhenFinished = true;
+  a.setEffectiveWeight(1).setEffectiveTimeScale(1);
+  a.play();
+  if (teacher.current && teacher.current !== a) a.crossFadeFrom(teacher.current, 0.45, false);
+  teacher.current = a; teacher.key = key;
+  tStatus.textContent = ANIM_LABEL[key];
+  tButtons.forEach(b => b.classList.toggle('on', b.dataset.anim === key));
+}
+function nextAuto() {
+  teacher.step = (teacher.step + 1) % AUTO_PLAN.length;
+  const [key, secs] = AUTO_PLAN[teacher.step];
+  teacher.timer = secs; teacher.waitFinish = secs === 0;
+  playAnim(key, secs === 0);
+}
+function updateTeacher(dt) {
+  if (!teacher.mixer) return;
+  teacher.mixer.update(dt);
+  if (teacher.auto && !teacher.waitFinish) { teacher.timer -= dt; if (teacher.timer <= 0) nextAuto(); }
+}
+tButtons.forEach(b => b.addEventListener('click', () => {
+  if (!teacher.mixer) return;
+  const k = b.dataset.anim, once = k === 'Waving' || k === 'Pointing';
+  playAnim(k, once);
+  teacher.waitFinish = once; teacher.timer = 8;   // 수동 재생 후 잠시 뒤 자동 강의가 이어짐
+}));
+tAuto.addEventListener('change', () => {
+  teacher.auto = tAuto.checked;
+  if (teacher.auto && !teacher.waitFinish) teacher.timer = 2;
+  if (!teacher.auto && teacher.key !== 'Waving' && teacher.key !== 'Pointing') playAnim('Idle');
+});
+
+// 클릭: 교수님 → 손 흔들기, 화이트보드/스크린 → 가리키기
+const raycaster = new THREE.Raycaster();
+function onSceneClick(e) {
+  if (!teacher.mixer) return;
+  const r = canvas.getBoundingClientRect();
+  raycaster.setFromCamera({ x: (e.clientX - r.left) / r.width * 2 - 1, y: -(e.clientY - r.top) / r.height * 2 + 1 }, camera);
+  const tHit = raycaster.intersectObject(teacher.model, true)[0];
+  const bHit = raycaster.intersectObjects([clickTargets.board, clickTargets.screen], false)[0];
+  if (tHit && (!bHit || tHit.distance < bHit.distance + 0.3)) { playAnim('Waving', true); teacher.waitFinish = true; }
+  else if (bHit) { playAnim('Pointing', true); teacher.waitFinish = true; }
+}
+
+if (THREE.GLTFLoader) {
+  new THREE.GLTFLoader().load(TEACHER_URL, gltf => {
+    buildTeacher(gltf);
+    const q = new URLSearchParams(location.search);
+    if (q.has('anim') && teacher.actions[q.get('anim')]) {
+      teacher.auto = tAuto.checked = false;
+      const k = q.get('anim'); playAnim(k, false);
+      if (q.has('t')) { teacher.mixer.stopAllAction(); const a = teacher.actions[k]; a.reset().play(); a.time = +q.get('t'); teacher.mixer.update(0); }
+    }
+  }, xhr => { if (xhr.total) tStatus.textContent = `아바타 불러오는 중 ${Math.round(xhr.loaded / xhr.total * 100)}%`; },
+  err => {
+    console.error('[teacher.glb] 불러오기 실패:', err);
+    tStatus.textContent = location.protocol === 'file:' ? '파일로 직접 열면 아바타를 불러올 수 없어요. 웹 링크로 열어 주세요.' : '아바타를 불러오지 못했습니다.';
+  });
+} else { tStatus.textContent = '3D 로더를 불러오지 못했습니다.'; }
+
 /* ---------- 루프 ---------- */
 const clockHands = window.__clockHands;
 let last = performance.now(), hudTimer = 0;
@@ -650,6 +893,7 @@ function frame(now) {
   clockHands.s.rotation.z = -s/60*TAU; clockHands.m.rotation.z = -m/60*TAU; clockHands.h.rotation.z = -h/12*TAU;
 
   if ((hudTimer += dt) > 0.1) { hudTimer = 0; updateHud(); }
+  updateTeacher(dt);
   renderer.render(scene, camera);
   requestAnimationFrame(frame);
 }
