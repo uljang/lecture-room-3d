@@ -59,11 +59,11 @@
 'use strict';
 
 /* ---------- 기본 설정 ---------- */
-const W = 12, D = 15, H = 3.0;               // 강의실 크기 (m)
+const W = 8.4, D = 12, H = 3.0;               // 강의실 크기 (m)
 const FRONT = -D/2, BACK = D/2, LEFT = -W/2, RIGHT = W/2;
-const COLS = 5, ROWS = 6;                    // 5 x 6 책상 배치
+const COLS = 3, ROWS = 5;                    // 3 x 5 책상 배치
 const COL_GAP = 2.0, ROW_GAP = 1.55, ROW0_Z = -3.2;
-const MY_ROW = 1, MY_COL = 2;                // 앞에서 두 번째 줄, 가운데
+const MY_ROW = 1, MY_COL = 1;                // 앞에서 두 번째 줄, 가운데
 
 let seed = 20261108;
 const rand = () => { seed |= 0; seed = seed + 0x6D2B79F5 | 0; let t = Math.imul(seed ^ seed >>> 15, 1 | seed); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; };
@@ -196,6 +196,15 @@ const blindTex = canvasTex(256, 512, (g, w, h) => {
   }
 });
 
+const backWallTex = canvasTex(512, 1024, (g, w, h) => {
+  const gr = g.createLinearGradient(0, 0, 0, h);
+  gr.addColorStop(0, '#d3d8d3'); gr.addColorStop(1, '#c8cec8');
+  g.fillStyle = gr; g.fillRect(0, 0, w, h);
+  for (let i = 0; i < 6000; i++) { g.fillStyle = `rgba(${rand() < .5 ? '100,108,102' : '240,243,240'},.05)`; g.fillRect(rand()*w, rand()*h, 2, 2); }
+  g.fillStyle = 'rgba(95,102,98,.32)'; g.fillRect(0, 0, 3, h);
+  g.fillStyle = 'rgba(255,255,255,.3)'; g.fillRect(3, 0, 2, h);
+}, [W/1.2, 1]);
+
 /* 화이트보드 판서 */
 function drawArrow(g, x1, y1, x2, y2, s = 14) {
   g.beginPath(); g.moveTo(x1, y1); g.lineTo(x2, y2); g.stroke();
@@ -317,6 +326,7 @@ const M = {
   floor: std(0xffffff, { map: floorTex, roughness: 0.38 }),
   ceil: std(0xffffff, { map: ceilTex, roughness: 0.95 }),
   wall: std(0xe6e8ea, { roughness: 0.92 }),
+  backWall: std(0xffffff, { map: backWallTex, roughness: 0.9 }),
   wallFront: std(0xeceeef, { roughness: 0.92 }),
   stoneLow: std(0xa69f97, { roughness: 0.55 }),
   sill: std(0xc4c6c8, { roughness: 0.35 }),
@@ -356,7 +366,7 @@ const room = new THREE.Group(); scene.add(room);
   ceil.rotation.x = Math.PI/2; room.add(ceil);
 
   const front = mesh(new THREE.PlaneGeometry(W, H), M.wallFront, 0, H/2, FRONT, { cast: false }); room.add(front);
-  const back = mesh(new THREE.PlaneGeometry(W, H), M.wall, 0, H/2, BACK, { cast: false }); back.rotation.y = Math.PI; room.add(back);
+  const back = mesh(new THREE.PlaneGeometry(W, H), M.backWall, 0, H/2, BACK, { cast: false }); back.rotation.y = Math.PI; room.add(back);
   const right = mesh(new THREE.PlaneGeometry(D, H), M.wall, RIGHT, H/2, 0, { cast: false }); right.rotation.y = -Math.PI/2; room.add(right);
 
   // 걸레받이
@@ -398,12 +408,12 @@ const room = new THREE.Group(); scene.add(room);
 
   // 천장 조명 패널
   const lp = new THREE.PlaneGeometry(0.6, 1.2);
-  [-3.9, -1.3, 1.3, 3.9].forEach(x => [-5.6, -2.6, 0.4, 3.4, 6.2].forEach(z => {
+  [-2.6, 0, 2.6].forEach(x => [-4.6, -1.6, 1.4, 4.4].forEach(z => {
     const p = mesh(lp, M.lightPanel, x, H - 0.0115, z, { cast: false, receive: false }); p.rotation.x = Math.PI/2; room.add(p);
     room.add(box(0.64, 0.012, 1.24, M.alu, x, H - 0.004, z, { cast: false, receive: false }));
   }));
   // 천장형 에어컨
-  [[-2.6, -1.1], [2.6, 4.9]].forEach(([x, z]) => {
+  [[-1.3, 0], [1.3, 2.9]].forEach(([x, z]) => {
     room.add(box(0.9, 0.05, 0.9, M.white, x, H - 0.025, z, { cast: false }));
     room.add(box(0.5, 0.052, 0.5, std(0xd5d8db), x, H - 0.026, z, { cast: false }));
   });
@@ -411,7 +421,7 @@ const room = new THREE.Group(); scene.add(room);
 
 /* ---------- 앞쪽: 화이트보드, 프로젝터 스크린 ---------- */
 {
-  const bw = 5.6, bh = 1.25, bx = -2.0, by = 1.45, bz = FRONT + 0.03;
+  const bw = 4.8, bh = 1.25, bx = 0, by = 1.45, bz = FRONT + 0.03;
   room.add(box(bw + 0.08, bh + 0.08, 0.035, M.aluDark, bx, by, FRONT + 0.0175));
   room.add(mesh(new THREE.PlaneGeometry(bw, bh), M.board, bx, by, bz + 0.007, { cast: false }));
   room.add(box(bw, 0.03, 0.09, M.aluDark, bx, by - bh/2 - 0.05, FRONT + 0.06));
@@ -422,20 +432,20 @@ const room = new THREE.Group(); scene.add(room);
   room.add(box(0.14, 0.04, 0.05, std(0x2c3e66), bx + 1.5, by - bh/2 - 0.015, FRONT + 0.06));
 
   // 전동 스크린
-  const sw = 2.7, sh = sw*10/16, sx = 3.05, sTop = 2.62, sz = FRONT + 0.22;
+  const sw = 2.6, sh = sw*10/16, sx = 0, sTop = 2.55, sz = FRONT + 0.32;   // 화이트보드 바로 앞으로 내려온 스크린
   room.add(box(sw + 0.24, 0.12, 0.14, M.white, sx, H - 0.08, sz));
   room.add(box(0.008, sTop > 0 ? H - 0.14 - sTop : 0.1, 0.004, M.black, sx, (H - 0.14 + sTop)/2, sz, { cast: false }));
   room.add(mesh(new THREE.PlaneGeometry(sw, sh), M.screen, sx, sTop - sh/2, sz, { cast: false, receive: false }));
   room.add(box(sw + 0.04, 0.03, 0.03, M.black, sx, sTop - sh - 0.015, sz));
   // 천장 프로젝터
-  const pz = -1.6;
+  const pz = -3.0;
   room.add(box(0.05, 0.25, 0.05, M.aluDark, sx, H - 0.125, pz));
   room.add(box(0.42, 0.13, 0.36, M.white, sx, H - 0.3, pz));
   const lens = mesh(new THREE.CylinderGeometry(0.045, 0.05, 0.04, 20), M.black, sx + 0.1, H - 0.3, pz - 0.19);
   lens.rotation.x = Math.PI/2; room.add(lens);
 
   // 시계 (실제 시간)
-  const clock = new THREE.Group(); clock.position.set(bx, 2.48, FRONT + 0.03); room.add(clock);
+  const clock = new THREE.Group(); clock.position.set(-3.1, 2.4, FRONT + 0.03); room.add(clock);
   const rim = mesh(new THREE.CylinderGeometry(0.17, 0.17, 0.04, 40), M.black, 0, 0, 0); rim.rotation.x = Math.PI/2; clock.add(rim);
   const face = mesh(new THREE.CircleGeometry(0.155, 40), M.clock, 0, 0, 0.021, { cast: false }); clock.add(face);
   const mkHand = (len, wid, color, z) => {
@@ -445,45 +455,39 @@ const room = new THREE.Group(); scene.add(room);
   window.__clockHands = { h: mkHand(0.085, 0.012, 0x1c1f24, 0.026), m: mkHand(0.125, 0.008, 0x1c1f24, 0.03), s: mkHand(0.135, 0.003, 0xc62828, 0.034) };
 
   // 스피커
-  [-5.4, 5.4].forEach(x => room.add(box(0.22, 0.34, 0.2, M.black, x, 2.65, FRONT + 0.12)));
+  [-3.75, 3.75].forEach(x => room.add(box(0.22, 0.34, 0.2, M.black, x, 2.65, FRONT + 0.12)));
 
   // 교탁
-  const lx = 4.9, lz = -6.0;
+  const lx = 3.15, lz = FRONT + 0.85;
   room.add(box(0.8, 1.05, 0.6, M.wood, lx, 0.525, lz));
   room.add(box(0.86, 0.03, 0.66, std(0x5f4a36, { roughness: .5 }), lx, 1.065, lz));
   room.add(box(0.5, 0.32, 0.03, M.black, lx, 1.3, lz - 0.1));
   room.add(box(0.06, 0.12, 0.06, M.black, lx, 1.12, lz - 0.1));
-  // 교수 책상 + 노트북
-  const tx = -0.6, tz = -5.7;
-  room.add(box(1.5, 0.03, 0.7, M.deskTop, tx, 0.74, tz));
-  [[-0.7, -0.3], [0.7, -0.3], [-0.7, 0.3], [0.7, 0.3]].forEach(([dx, dz]) => room.add(box(0.04, 0.725, 0.04, M.aluDark, tx + dx, 0.3625, tz + dz)));
-  room.add(box(0.34, 0.015, 0.24, std(0x8c9096, { metalness: .5, roughness: .35 }), tx + 0.2, 0.763, tz));
-  const lid = box(0.34, 0.23, 0.01, std(0x8c9096, { metalness: .5, roughness: .35 }), tx + 0.2, 0.87, tz - 0.12); lid.rotation.x = 0.25; room.add(lid);
 }
 
 /* ---------- 오른쪽 벽: 문, 비상구 ---------- */
 {
-  [-6.1, 6.0].forEach((z, i) => {
+  [FRONT + 1.95, BACK - 1.2].forEach((z, i) => {
     room.add(box(0.06, 2.2, 1.12, M.aluDark, RIGHT - 0.03, 1.1, z));
     room.add(box(0.05, 2.12, 1.0, M.door, RIGHT - 0.05, 1.06, z));
     room.add(box(0.052, 0.55, 0.3, M.glass, RIGHT - 0.05, 1.6, z, { cast: false }));
     room.add(box(0.1, 0.03, 0.16, M.aluDark, RIGHT - 0.1, 1.0, z - 0.36));
     if (i === 0) { const ex = mesh(new THREE.PlaneGeometry(0.42, 0.13), M.exit, RIGHT - 0.02, 2.4, z, { cast: false }); ex.rotation.y = -Math.PI/2; room.add(ex); }
   });
-  room.add(box(0.02, 0.12, 0.08, M.white, RIGHT - 0.01, 1.25, -5.35));
+  room.add(box(0.02, 0.12, 0.08, M.white, RIGHT - 0.01, 1.25, FRONT + 2.65));
 }
 
 /* ---------- 뒤쪽 벽: 게시판, 사물함 ---------- */
 {
-  room.add(box(3.24, 1.34, 0.04, M.wood, -2.0, 1.55, BACK - 0.02));
-  const cb = mesh(new THREE.PlaneGeometry(3.1, 1.2), M.cork, -2.0, 1.55, BACK - 0.045, { cast: false }); cb.rotation.y = Math.PI; room.add(cb);
-  for (let i = 0; i < 6; i++) {
-    const x = 1.6 + i*0.62;
+  room.add(box(3.24, 1.34, 0.04, M.wood, -1.6, 1.55, BACK - 0.02));
+  const cb = mesh(new THREE.PlaneGeometry(3.1, 1.2), M.cork, -1.6, 1.55, BACK - 0.045, { cast: false }); cb.rotation.y = Math.PI; room.add(cb);
+  for (let i = 0; i < 4; i++) {
+    const x = 1.1 + i*0.62;
     room.add(box(0.6, 1.1, 0.45, std(0xd8dcdf, { roughness: .45, metalness: .2 }), x, 0.55, BACK - 0.23));
     room.add(box(0.02, 0.9, 0.01, M.aluDark, x - 0.27, 0.6, BACK - 0.455, { cast: false }));
     room.add(box(0.04, 0.12, 0.02, M.aluDark, x + 0.22, 0.75, BACK - 0.46, { cast: false }));
   }
-  const bin = mesh(new THREE.CylinderGeometry(0.17, 0.15, 0.45, 20), std(0x6d7782), -5.4, 0.225, BACK - 0.4); room.add(bin);
+  const bin = mesh(new THREE.CylinderGeometry(0.17, 0.15, 0.45, 20), std(0x6d7782), LEFT + 0.6, 0.225, BACK - 0.4); room.add(bin);
 }
 
 /* ---------- 책상 & 의자 ---------- */
@@ -559,12 +563,12 @@ const sun = new THREE.DirectionalLight(0xffffff, 0.6);
 sun.position.set(-2.5, 9, 1.5); sun.target.position.set(0, 0, 0);
 sun.castShadow = true;
 sun.shadow.mapSize.set(2048, 2048);
-Object.assign(sun.shadow.camera, { left: -8.5, right: 8.5, top: 8.5, bottom: -8.5, near: 1, far: 20 });
+Object.assign(sun.shadow.camera, { left: -7, right: 7, top: 7, bottom: -7, near: 1, far: 20 });
 sun.shadow.bias = -0.0004; sun.shadow.normalBias = 0.02;
 scene.add(sun, sun.target);
 [-4, 3].forEach(z => { const p = new THREE.PointLight(0xe3ecf8, 0.45, 9); p.position.set(LEFT + 0.8, 1.8, z); scene.add(p); });
-[-4.5, 0, 4.5].forEach(z => { const p = new THREE.PointLight(0xfffaf2, 0.22, 10); p.position.set(0.5, 2.6, z); scene.add(p); });
-const boardLight = new THREE.PointLight(0xffffff, 0.25, 6); boardLight.position.set(-1, 2.5, FRONT + 2.5); scene.add(boardLight);
+[-4.5, 0, 4.5].forEach(z => { const p = new THREE.PointLight(0xfffaf2, 0.22, 10); p.position.set(0, 2.6, z); scene.add(p); });
+const boardLight = new THREE.PointLight(0xffffff, 0.25, 6); boardLight.position.set(0, 2.5, FRONT + 2.2); scene.add(boardLight);
 
 // 폰트 로딩 후 글씨 텍스처 다시 그리기
 if (document.fonts && document.fonts.load) {
