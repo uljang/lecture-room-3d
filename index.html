@@ -7,16 +7,23 @@
 <script>
 /* =====================================================================
    강의 내용 데이터 — 여기만 고치면 강의가 바뀝니다.
+   (이전 12장 변형일치법 강의는 '강의데이터_백업_12장_변형일치법.js' 에 보관)
    ---------------------------------------------------------------------
    steps 의 각 단계:
      say   : 아바타가 하는 말 (화면 아래 자막으로 표시, '음성 켜기' 시 읽어 줌)
+             → 긴 설명은 여기에 씁니다.
      board : 칠판에 띄울 내용. null 이면 칠판은 그대로 두고 말만 함
+             → 칠판에는 핵심 키워드와 간단한 도식만 씁니다.
        title   : 칠판 제목
        points  : 핵심 내용 줄 목록. 글자 그대로 쓰임 ('• ' 같은 기호도 직접 씀)
                  강조할 줄은 { text: '...', color: 'red' | 'blue' | 'green', box: true } 처럼 객체로
        diagram : 오른쪽에 그릴 그림 (없으면 null → 글이 칠판 전체 폭을 씀)
-                 'propped-beam'      고정단 + 롤러 보 (등분포하중, 반력 표시)
+                 'stiffness-compare' 단순보 vs 양단 고정보 처짐 비교
+                 'table-analogy'     다리 3개 의자 vs 다리 4개 탁자
                  'statics-compare'   정정 보 vs 부정정 보 비교
+                 'examples'          연속보, 양단 고정보
+                 'propped-beam'      고정단 + 롤러 보 (등분포하중, 반력 표시)
+                 'determinacy-scale' 불안정 / 정정 / 부정정 판별 눈금
                  'methods'           해법 분류 도식
                  'cantilever-udl'    캔틸레버 + 등분포하중, 처짐 δB1
                  'cantilever-point'  캔틸레버 + 끝단 R_B, 처짐 δB2
@@ -26,138 +33,118 @@
    cover : 강의를 시작하기 전에 칠판에 적혀 있는 내용
    ===================================================================== */
 window.LECTURE = {
-  title: '12장 부정정 구조물의 해법',
+  title: '부정정 구조물이란?',
   cover: {
-    title: '12장  부정정 구조물의 해법  —  변형일치법',
+    title: '오늘의 주제 :  부정정 구조물',
     points: [
-      '① 부정정 차수 :  r − 3 = 4 − 3 = 1차',
-      '② 적합조건 :  δB1 − δB2 = 0',
-      '      wL⁴ / 8EI  =  R_B · L³ / 3EI',
-      { text: '∴  R_B = 3wL / 8 ,   M_A = wL² / 8', color: 'red', box: true },
+      '① 왜 필요할까?',
+      '② 쉬운 비유',
+      '③ 정확한 정의',
+      '④ 예시',
+      '⑤ 자주 하는 실수',
+      '⑥ 한 줄 요약',
     ],
-    diagram: 'propped-beam',
+    diagram: 'table-analogy',
   },
   steps: [
+    // ① 왜 필요한가
     {
-      say: '자, 다들 자리에 앉아 주세요. 오늘은 12장, 부정정 구조물의 해법을 공부하겠습니다. 먼저 부정정 구조물이 무엇인지 보고, 해법을 분류한 다음, 변형일치법으로 예제를 하나 끝까지 풀어 보겠습니다.',
+      say: '자, 오늘은 부정정 구조물이라는 개념을 처음부터 차근차근 알아보겠습니다. 다리나 건물 같은 실제 구조물을 보면, 기둥이나 지점이 꼭 필요한 개수보다 더 많이 들어가 있는 경우가 대부분이에요. 왜 그럴까요? 지점을 하나 더 두거나 끝을 단단히 고정하면 보가 훨씬 덜 처지고 휨모멘트도 줄어들어서, 같은 재료로 더 튼튼하게 만들 수 있거든요. 칠판 그림처럼 같은 하중이라도 양 끝을 고정하면 처짐이 단순보의 5분의 1밖에 안 됩니다. 게다가 한 곳이 손상돼도 다른 곳이 힘을 나눠 받아서 갑자기 무너지지 않아요. 문제는, 이렇게 받쳐 주는 곳이 많아지면 지금까지 배운 평형방정식만으로는 힘을 다 구할 수가 없다는 겁니다. 그래서 부정정 구조물이라는 개념이 필요해요.',
       board: {
-        title: '12장  부정정 구조물의 해법',
+        title: '① 왜 필요할까?',
         points: [
-          '• 오늘 배울 내용',
-          '    ① 부정정 구조물과 부정정 차수',
-          '    ② 해법의 분류 : 응력법 / 변위법',
-          '    ③ 변형일치법으로 1차 부정정보 풀기',
+          '• 받침·고정을 더 두면',
+          '    처짐 ↓   휨모멘트 ↓',
+          '• 한 곳이 손상돼도 버팀',
+          { text: '→ 그런데 평형식만으로는 못 푼다!', color: 'red' },
         ],
-        diagram: null,
+        diagram: 'stiffness-compare',
       },
     },
+    // ② 쉬운 비유
     {
-      say: '정정 구조물은 평형방정식 세 개만으로 반력을 모두 구할 수 있죠. 그런데 오른쪽 아래 보처럼 한쪽을 고정단으로 바꾸면 미지 반력이 네 개가 됩니다. 식은 세 개인데 미지수가 네 개니까 평형조건만으로는 풀 수가 없어요. 이런 구조물을 부정정 구조물이라고 합니다.',
+      say: '쉽게 비유해 볼게요. 다리가 세 개인 의자는 바닥이 조금 울퉁불퉁해도 세 다리가 항상 바닥에 닿습니다. 그래서 앉은 사람의 무게를 각 다리가 얼마씩 받는지는 힘의 평형만 따져도 딱 정해져요. 그런데 다리가 네 개인 식당 탁자는 어떤가요? 가끔 덜컹거리죠. 다리 길이가 조금만 달라도 한 다리가 살짝 뜨고, 그 다리는 힘을 거의 받지 않습니다. 즉 네 다리가 힘을 어떻게 나눠 받는지는 평형만으로는 알 수 없고, 다리 길이나 바닥이 얼마나 눌리는지, 다시 말해 변형을 알아야 정해져요. 의자가 정정 구조물, 탁자가 부정정 구조물이라고 생각하면 됩니다.',
       board: {
-        title: '부정정 구조물이란?',
+        title: '② 비유 :  의자 vs 탁자',
         points: [
-          '• 힘의 평형조건식만으로는 반력을 구할 수 없는 구조물',
-          '    ΣH = 0,  ΣV = 0,  ΣM = 0  →  식은 3개뿐',
-          '• 미지 반력 수  >  평형방정식 수',
-          { text: '→ 변형에 관한 조건(적합조건)이 추가로 필요', color: 'red' },
+          '• 다리 3개 의자  →  정정',
+          '• 다리 4개 탁자  →  부정정',
+          { text: '힘의 분배 = 변형이 결정', color: 'blue' },
+        ],
+        diagram: 'table-analogy',
+      },
+    },
+    // ③ 정확한 정의
+    {
+      say: '이제 정확하게 정의해 볼게요. 평면 구조물에서 쓸 수 있는 평형방정식은 수평 방향 힘의 합, 수직 방향 힘의 합, 모멘트의 합이 0이라는 세 개뿐입니다. 그런데 구해야 할 반력이나 부재력, 즉 미지수가 이 식의 개수보다 많으면 평형방정식만으로는 답을 정할 수 없어요. 이런 구조물을 부정정 구조물이라고 합니다. 그리고 미지수가 식보다 몇 개 더 많은지를 부정정 차수라고 해요. 칠판 그림에서 위의 단순보는 미지수 3개, 식 3개라서 정정이고, 아래처럼 한쪽을 고정단으로 바꾸면 미지수가 4개가 되어 1차 부정정이 됩니다.',
+      board: {
+        title: '③ 정의',
+        points: [
+          '• 평형방정식 :  ΣH = 0,  ΣV = 0,  ΣM = 0',
+          '• 미지수(반력·부재력)  >  식의 수',
+          { text: '→ 부정정 구조물', color: 'red', box: true },
+          '• 부정정 차수  N = 미지수 − 식의 수',
         ],
         diagram: 'statics-compare',
       },
     },
+    // ④ 예시 (주변 구조물)
     {
-      say: '부정정 차수는 미지수가 평형방정식보다 몇 개 더 많은지를 나타냅니다. 보에서는 간단하게 반력 수에서 3을 빼면 돼요. 그림의 보는 고정단에서 반력 세 개, 롤러에서 하나, 합쳐서 네 개니까 4 빼기 3, 1차 부정정입니다. 조건식이 하나 더 필요하다는 뜻이에요.',
+      say: '부정정 구조물은 생각보다 훨씬 흔해요. 강을 건너는 다리를 보면 상판이 여러 교각 위에 쭉 이어져 있죠. 이런 걸 연속보라고 하는데, 칠판 위쪽 그림처럼 지점이 세 개면 반력이 네 개라서 1차 부정정입니다. 아래쪽처럼 양 끝을 모두 벽에 고정한 보는 반력이 여섯 개라서 3차 부정정이고요. 그리고 여러분이 지금 앉아 있는 이 건물도 기둥과 보가 단단하게 붙어 있는 라멘 구조라서, 대부분 차수가 높은 부정정 구조물입니다.',
       board: {
-        title: '부정정 차수',
+        title: '④ 예시 :  주변의 부정정 구조물',
         points: [
-          '• 부정정 차수 = 미지수 개수 − 평형방정식 개수',
-          '• 일반식 :   N = r + m + k − 2j',
-          '• 보의 경우 :   N = r − 3',
-          { text: '예) 고정단(3) + 롤러(1)  →  N = 4 − 3 = 1차', color: 'blue' },
+          '• 연속보  →  교량 상판',
+          '• 양단 고정보',
+          '• 라멘  →  건물의 기둥 + 보',
+        ],
+        diagram: 'examples',
+      },
+    },
+    // ④ 예시 (간단한 보)
+    {
+      say: '간단한 예를 하나 직접 볼까요? A는 고정단, B는 롤러인 보에 등분포하중이 걸려 있습니다. 고정단 반력 세 개, 롤러 반력 하나, 합쳐서 네 개니까 1차 부정정이에요. 식이 하나 모자라죠. 그 모자란 식은 어디서 가져올까요? B점은 롤러로 받쳐져 있으니까 위아래로 움직일 수 없다, 즉 B점의 처짐이 0이라는 변형 조건에서 가져옵니다. 이 조건을 쓰면 R B는 8분의 3 w L, R A는 8분의 5 w L로 구해져요. 자세한 계산은 다음 시간에 변형일치법으로 함께 해 봅시다.',
+      board: {
+        title: '④ 예시 :  한쪽 고정, 한쪽 롤러',
+        points: [
+          '• r = 3 + 1 = 4  →  1차 부정정',
+          '• 모자란 식 :  B점 처짐 = 0',
+          { text: 'R_B = 3wL/8 ,   R_A = 5wL/8', color: 'red' },
         ],
         diagram: 'propped-beam',
       },
     },
+    // ⑤ 자주 하는 실수
     {
-      say: '부정정 구조물을 푸는 방법은 크게 두 가지입니다. 힘을 미지수로 잡는 응력법, 그리고 변위를 미지수로 잡는 변위법이에요. 오늘 배울 변형일치법은 응력법에 속하고, 처짐각법과 모멘트분배법은 다음 시간에 배울 변위법입니다.',
+      say: '처음 배울 때 자주 하는 실수 세 가지를 짚고 갈게요. 첫째, 지점 개수와 반력 개수를 헷갈리는 겁니다. 고정단은 수평, 수직, 모멘트까지 반력이 세 개, 힌지는 두 개, 롤러는 한 개예요. 지점이 두 개라고 반력이 두 개인 게 아닙니다. 둘째, 부정정이라는 말을 불안정하다는 뜻으로 오해하는 경우가 많은데, 오히려 반대예요. 차수가 0보다 작으면 받쳐 주는 게 부족해서 무너지는 불안정 구조물이고, 0이면 정정, 0보다 크면 여유가 있는 부정정 구조물입니다. 셋째, 식이 모자랄 때 평형방정식을 이리저리 더 세우면 풀릴 거라고 생각하는 건데요, 새로 세운 식은 결국 앞의 세 식을 조합한 것이라 새로운 정보가 없어요. 반드시 변형 조건이 필요합니다.',
       board: {
-        title: '부정정 구조물의 해법 분류',
+        title: '⑤ 자주 하는 실수',
         points: [
-          '• 응력법 (유연도법)',
-          '    여분력(힘)을 미지수로  →  적합조건으로 풂',
-          '• 변위법 (강성도법)',
-          '    변위·회전각을 미지수로  →  평형조건으로 풂',
+          '• 지점 개수 ≠ 반력 개수',
+          '    고정단 3 · 힌지 2 · 롤러 1',
+          '• 부정정 ≠ 불안정',
+          { text: '• 평형식을 더 세워도 안 풀림', color: 'red' },
         ],
-        diagram: 'methods',
+        diagram: 'determinacy-scale',
       },
     },
+    // ⑥ 한 줄 요약
     {
-      say: '변형일치법의 첫 단계는 여분력을 하나 골라서 없애는 겁니다. B점의 롤러 반력 R B를 제거하면 A에 고정된 캔틸레버가 남죠. 이 정정 구조물에 등분포하중 w가 작용하면 끝점 B는 아래로 w L의 네제곱 나누기 8 E I 만큼 처집니다.',
+      say: '오늘 내용을 한 줄로 요약하면, 부정정 구조물은 평형방정식만으로는 부족해서 변형 조건까지 함께 써야 풀 수 있는 구조물입니다. 더 튼튼하고 덜 처지게 하려고 일부러 받침을 더 둔 구조물이고, 몇 차 부정정인지는 미지수 개수에서 식의 개수를 빼서 구해요. 다음 시간에는 이 모자란 식을 변형 조건으로 채우는 대표적인 방법, 변형일치법을 배우겠습니다.',
       board: {
-        title: '변형일치법 ①  기본 구조물 만들기',
+        title: '⑥ 한 줄 요약',
         points: [
-          '• 여분력 R_B (B점 롤러 반력)를 제거',
-          '• 남은 구조 = 캔틸레버 (정정 기본구조)',
-          '• 하중 w에 의한 B점 처짐',
-          { text: '    δB1 = wL⁴ / 8EI   ( ↓ )', color: 'red' },
-        ],
-        diagram: 'cantilever-udl',
-      },
-    },
-    {
-      say: '이번에는 하중은 빼고, 아까 제거했던 반력 R B만 끝점에 위로 작용시켜 봅시다. 끝단에 집중하중을 받는 캔틸레버니까 B점은 위로 R B L세제곱 나누기 3 E I 만큼 올라갑니다.',
-      board: {
-        title: '변형일치법 ②  여분력만 작용',
-        points: [
-          '• 같은 캔틸레버에 R_B만 위로 작용',
-          '• 끝단 집중하중 캔틸레버 공식 그대로',
-          '• B점의 처짐',
-          { text: '    δB2 = R_B · L³ / 3EI   ( ↑ )', color: 'red' },
-        ],
-        diagram: 'cantilever-point',
-      },
-    },
-    {
-      say: '실제 구조물에서 B점은 롤러로 받쳐져 있으니까 처짐이 0이어야 합니다. 그래서 하중에 의한 처짐과 R B에 의한 처짐이 서로 같아야 하죠. 이 식을 정리하면 R B는 8분의 3 w L이 됩니다. 이게 바로 변형을 일치시킨다는 뜻이에요.',
-      board: {
-        title: '변형일치법 ③  적합조건',
-        points: [
-          '• 실제 B점은 롤러  →  처짐 = 0',
-          '    δB1 − δB2 = 0',
-          '    wL⁴ / 8EI  =  R_B · L³ / 3EI',
-          { text: '∴  R_B = 3wL / 8', color: 'red', box: true },
-        ],
-        diagram: 'superposition',
-      },
-    },
-    {
-      say: 'R B를 구했으니 나머지는 평형방정식으로 풀면 됩니다. 수직 방향 힘의 평형에서 R A는 8분의 5 w L, A점의 모멘트는 8분의 w L제곱이고 부모멘트예요. 휨모멘트도를 그려 보면 B점에서 8분의 3 L 떨어진 곳에서 최대 정모멘트 128분의 9 w L제곱이 생깁니다.',
-      board: {
-        title: '나머지 반력과 휨모멘트도',
-        points: [
-          '• ΣV = 0 :   R_A = wL − 3wL/8 = 5wL/8',
-          '• ΣM_A = 0 :   M_A = wL²/8  (부모멘트)',
-          '• 최대 정모멘트 : B에서 3L/8 지점',
-          { text: '    M_max = 9wL² / 128', color: 'red' },
-        ],
-        diagram: 'bmd',
-      },
-    },
-    {
-      say: '오늘 내용을 정리하면, 부정정 차수만큼 여분력을 제거하고, 정정 구조물의 처짐을 계산한 다음, 원래 지지조건에 맞게 변형을 일치시켜서 여분력을 구하는 겁니다. 나머지 반력은 평형방정식으로 구하면 되고요.',
-      board: {
-        title: '정리 — 변형일치법 순서',
-        points: [
-          '① 부정정 차수만큼 여분력을 골라 제거',
-          '② 기본 구조물(정정)의 처짐 계산',
-          '③ 적합조건(변형 일치)으로 여분력 결정',
-          '④ 나머지 반력·모멘트는 평형방정식으로',
-          { text: '※ 다음 시간 : 처짐각법, 모멘트분배법', color: 'blue' },
+          { text: '부정정 구조물  =  평형방정식 + 변형 조건으로 푸는 구조물', color: 'red', box: true },
+          '• 왜?  →  더 튼튼하고 덜 처지게',
+          '• 몇 차?  →  N = 미지수 − 식의 수',
+          { text: '※ 다음 시간 :  변형일치법', color: 'blue' },
         ],
         diagram: null,
       },
     },
+    // 마무리 (칠판은 그대로)
     {
-      say: '혹시 질문 있으면 지금 해 주세요. 없으면 오늘은 여기까지 하겠습니다. 다음 시간에는 변위법인 처짐각법을 배웁니다. 수고했어요!',
+      say: '혹시 의자와 탁자 비유에서 이해가 안 되는 부분이나 궁금한 점 있으면 지금 질문해 주세요. 없으면 오늘은 여기까지 하겠습니다. 수고했어요!',
       board: null,
     },
   ],
@@ -424,9 +411,9 @@ const REVEAL_SECS = 1.6;
 
 function bLine(g, x1, y1, x2, y2) { g.beginPath(); g.moveTo(x1, y1); g.lineTo(x2, y2); g.stroke(); }
 function bText(g, s, x, y, color, size, align = 'left') { g.fillStyle = color; g.font = `${size}px ${HAND}`; g.textAlign = align; g.fillText(s, x, y); g.textAlign = 'left'; }
-function bFixed(g, x, y, k) {
+function bFixed(g, x, y, k, dir = 1) {
   g.strokeStyle = INK.black; g.lineWidth = 5*k; bLine(g, x, y - 70*k, x, y + 70*k);
-  g.lineWidth = 3*k; for (let t = -60; t <= 60; t += 20) bLine(g, x, y + t*k, x - 22*k, y + (t + 18)*k);
+  g.lineWidth = 3*k; for (let t = -60; t <= 60; t += 20) bLine(g, x, y + t*k, x - 22*k*dir, y + (t + 18)*k);
 }
 function bRoller(g, x, y, k) {
   g.strokeStyle = INK.black; g.lineWidth = 4*k;
@@ -468,12 +455,70 @@ function beamScene(g, x, y, w, h, o = {}) {
   g.strokeStyle = INK.black; g.lineWidth = 7*k; bLine(g, x1, yb, x2, yb);
   if (o.left === 'pin') bPin(g, x1, yb, k); else bFixed(g, x1, yb, k);
   if (o.right === 'roller') bRoller(g, x2, yb, k);
+  else if (o.right === 'fixed') bFixed(g, x2, yb, k, -1);
+  else if (o.right === 'pin') bPin(g, x2, yb, k);
   if (o.labels !== false) { bText(g, 'A', x1 - 66*k, yb - 70*k, INK.black, 56*kt(k)); bText(g, 'B', x2 + 34*k, yb - 22*k, INK.black, 56*kt(k)); }
   if (o.dims) bDim(g, x1, x2, yb + 190*k, k, 'L');
   return { x1, x2, yb, k };
 }
 
 const DIAGRAMS = {
+  'stiffness-compare': (g, x, y, w, h) => {
+    const hh = h/2;
+    const a = beamScene(g, x, y - 10, w, hh, { left: 'pin', right: 'roller', labels: false });
+    bCurve(g, a.x1, a.x2, a.yb, 70*a.k, a.k, t => Math.sin(Math.PI*t), INK.red);
+    bText(g, '단순보 :  처짐 5wL⁴/384EI', x + w/2, y + hh - 4, INK.black, 46, 'center');
+    const b = beamScene(g, x, y + hh - 10, w, hh, { left: 'fixed', right: 'fixed', labels: false });
+    bCurve(g, b.x1, b.x2, b.yb, 14*b.k, b.k, t => 16*t*t*(1 - t)*(1 - t), INK.red);
+    bText(g, '양단 고정 :  wL⁴/384EI  (1/5!)', x + w/2, y + h - 4, INK.blue, 46, 'center');
+  },
+  'table-analogy': (g, x, y, w, h) => {
+    const fy = y + h*0.62;
+    g.lineCap = 'round';
+    // 다리 3개 의자
+    const c1 = x + w*0.24;
+    g.strokeStyle = INK.black; g.lineWidth = 9; bLine(g, c1 - 120, fy - 200, c1 + 120, fy - 200);
+    g.lineWidth = 6; bLine(g, c1 - 100, fy - 196, c1 - 130, fy); bLine(g, c1 + 100, fy - 196, c1 + 130, fy);
+    g.strokeStyle = '#6b7078'; g.lineWidth = 5; bLine(g, c1 + 8, fy - 196, c1 + 14, fy - 34);
+    g.strokeStyle = INK.black; g.lineWidth = 3; bLine(g, c1 - 190, fy, c1 + 190, fy);
+    bText(g, '다리 3개', c1, fy + 70, INK.black, 50, 'center');
+    bText(g, '평형만으로 결정', c1, fy + 130, INK.black, 44, 'center');
+    // 다리 4개 탁자 (한 다리가 뜸)
+    const c2 = x + w*0.72;
+    g.strokeStyle = INK.black; g.lineWidth = 6;
+    g.beginPath(); g.moveTo(c2 - 190, fy - 230); g.lineTo(c2 + 130, fy - 230); g.lineTo(c2 + 180, fy - 196); g.lineTo(c2 - 140, fy - 196); g.closePath(); g.stroke();
+    g.strokeStyle = '#6b7078'; g.lineWidth = 5; bLine(g, c2 - 186, fy - 226, c2 - 186, fy - 36); bLine(g, c2 + 126, fy - 226, c2 + 126, fy - 36);
+    g.strokeStyle = INK.black; g.lineWidth = 6; bLine(g, c2 - 136, fy - 194, c2 - 136, fy); bLine(g, c2 + 176, fy - 194, c2 + 176, fy - 22);
+    g.lineWidth = 3; bLine(g, c2 - 230, fy, c2 + 230, fy);
+    g.strokeStyle = INK.red; g.lineWidth = 3; g.beginPath(); g.ellipse(c2 + 176, fy - 10, 30, 22, 0, 0, Math.PI*2); g.stroke();
+    bText(g, '덜컹!', c2 + 214, fy - 40, INK.red, 44);
+    bText(g, '다리 4개', c2, fy + 70, INK.red, 50, 'center');
+    bText(g, '변형까지 알아야', c2, fy + 130, INK.red, 44, 'center');
+  },
+  'examples': (g, x, y, w, h) => {
+    const hh = h/2;
+    const a = beamScene(g, x, y - 10, w, hh, { left: 'pin', right: 'roller', labels: false });
+    bRoller(g, (a.x1 + a.x2)/2, a.yb, a.k);
+    bText(g, '연속보 :  r = 2+1+1 = 4  →  1차', x + w/2, y + hh - 4, INK.black, 46, 'center');
+    beamScene(g, x, y + hh - 10, w, hh, { left: 'fixed', right: 'fixed', labels: false });
+    bText(g, '양단 고정보 :  r = 3+3 = 6  →  3차', x + w/2, y + h - 4, INK.black, 46, 'center');
+  },
+  'determinacy-scale': (g, x, y, w, h) => {
+    const ly = y + h*0.36, xa = x + 60, xb = x + w - 60;
+    const pos = n => xa + (n + 2)*(xb - xa)/4;      // N = -2 … 2
+    g.strokeStyle = INK.black; g.lineWidth = 4; drawArrow(g, xa, ly, xb, ly, 18);
+    [-1, 0, 1, 2].forEach(n => { g.lineWidth = 3; bLine(g, pos(n), ly - 14, pos(n), ly + 14); bText(g, String(n), pos(n), ly + 58, INK.black, 44, 'center'); });
+    bText(g, 'N', xb + 10, ly - 20, INK.black, 48);
+    g.fillStyle = 'rgba(198,40,40,.12)'; g.fillRect(xa, ly - 40, pos(0) - xa - 12, 80);
+    g.fillStyle = 'rgba(29,79,184,.12)'; g.fillRect(pos(0) + 12, ly - 40, xb - pos(0) - 30, 80);
+    bText(g, '불안정', (xa + pos(0))/2, ly - 62, INK.red, 52, 'center');
+    bText(g, '정정', pos(0), ly - 62, INK.black, 52, 'center');
+    bText(g, '부정정', (pos(0) + xb)/2 + 20, ly - 62, INK.blue, 52, 'center');
+    bText(g, '(무너짐)', (xa + pos(0))/2, ly + 120, INK.red, 42, 'center');
+    bText(g, '(여유 있음, 안정)', (pos(0) + xb)/2 + 20, ly + 120, INK.blue, 42, 'center');
+    g.strokeStyle = INK.blue; g.lineWidth = 4; g.strokeRect(x + w*0.18, y + h - 120, w*0.64, 90);
+    bText(g, '부정정 ≠ 불안정', x + w/2, y + h - 58, INK.blue, 56, 'center');
+  },
   'propped-beam': (g, x, y, w, h) => {
     const { x1, x2, yb, k } = beamScene(g, x, y, w, h, { left: 'fixed', right: 'roller', dims: true });
     g.strokeStyle = INK.blue; g.lineWidth = 4*k;
