@@ -13,3 +13,9 @@
 - GLB 안의 `Talk_with_Hands_Open` 클립을 Talking으로 사용하고, 없는 Idle / Waving / Pointing 은 코드로 생성합니다.
 - 교수님 클릭: 손 흔들기, 화이트보드·스크린 클릭: 가리키기
 - 로컬에서 html 파일을 직접 열면(file://) GLB를 불러올 수 없어 웹 링크로 확인해야 합니다.
+
+## 강의 진행
+- 화면 아래 자막과 이전/다음 버튼으로 단계 이동 (키보드: N·Enter·PageDown 다음, P·PageUp 이전)
+- 강의 내용은 `index.html` 맨 위의 `window.LECTURE` 데이터만 고치면 바뀝니다 (say / board.title / board.points / board.diagram)
+- 새 칠판 내용이 있으면 Pointing 후 칠판에 판서, 말하는 동안 Talking, 끝나면 Idle
+- 강의 중에는 화이트보드가 보이도록 프로젝터 스크린이 말려 올라갑니다

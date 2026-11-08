@@ -4,6 +4,165 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>대학 강의실 3D</title>
+<script>
+/* =====================================================================
+   강의 내용 데이터 — 여기만 고치면 강의가 바뀝니다.
+   ---------------------------------------------------------------------
+   steps 의 각 단계:
+     say   : 아바타가 하는 말 (화면 아래 자막으로 표시, '음성 켜기' 시 읽어 줌)
+     board : 칠판에 띄울 내용. null 이면 칠판은 그대로 두고 말만 함
+       title   : 칠판 제목
+       points  : 핵심 내용 줄 목록. 글자 그대로 쓰임 ('• ' 같은 기호도 직접 씀)
+                 강조할 줄은 { text: '...', color: 'red' | 'blue' | 'green', box: true } 처럼 객체로
+       diagram : 오른쪽에 그릴 그림 (없으면 null → 글이 칠판 전체 폭을 씀)
+                 'propped-beam'      고정단 + 롤러 보 (등분포하중, 반력 표시)
+                 'statics-compare'   정정 보 vs 부정정 보 비교
+                 'methods'           해법 분류 도식
+                 'cantilever-udl'    캔틸레버 + 등분포하중, 처짐 δB1
+                 'cantilever-point'  캔틸레버 + 끝단 R_B, 처짐 δB2
+                 'superposition'     두 경우의 중첩
+                 'bmd'               고정-롤러 보의 휨모멘트도
+                 또는 함수 (g, x, y, w, h) => { ...캔버스 2D로 직접 그리기... }
+   cover : 강의를 시작하기 전에 칠판에 적혀 있는 내용
+   ===================================================================== */
+window.LECTURE = {
+  title: '12장 부정정 구조물의 해법',
+  cover: {
+    title: '12장  부정정 구조물의 해법  —  변형일치법',
+    points: [
+      '① 부정정 차수 :  r − 3 = 4 − 3 = 1차',
+      '② 적합조건 :  δB1 − δB2 = 0',
+      '      wL⁴ / 8EI  =  R_B · L³ / 3EI',
+      { text: '∴  R_B = 3wL / 8 ,   M_A = wL² / 8', color: 'red', box: true },
+    ],
+    diagram: 'propped-beam',
+  },
+  steps: [
+    {
+      say: '자, 다들 자리에 앉아 주세요. 오늘은 12장, 부정정 구조물의 해법을 공부하겠습니다. 먼저 부정정 구조물이 무엇인지 보고, 해법을 분류한 다음, 변형일치법으로 예제를 하나 끝까지 풀어 보겠습니다.',
+      board: {
+        title: '12장  부정정 구조물의 해법',
+        points: [
+          '• 오늘 배울 내용',
+          '    ① 부정정 구조물과 부정정 차수',
+          '    ② 해법의 분류 : 응력법 / 변위법',
+          '    ③ 변형일치법으로 1차 부정정보 풀기',
+        ],
+        diagram: null,
+      },
+    },
+    {
+      say: '정정 구조물은 평형방정식 세 개만으로 반력을 모두 구할 수 있죠. 그런데 오른쪽 아래 보처럼 한쪽을 고정단으로 바꾸면 미지 반력이 네 개가 됩니다. 식은 세 개인데 미지수가 네 개니까 평형조건만으로는 풀 수가 없어요. 이런 구조물을 부정정 구조물이라고 합니다.',
+      board: {
+        title: '부정정 구조물이란?',
+        points: [
+          '• 힘의 평형조건식만으로는 반력을 구할 수 없는 구조물',
+          '    ΣH = 0,  ΣV = 0,  ΣM = 0  →  식은 3개뿐',
+          '• 미지 반력 수  >  평형방정식 수',
+          { text: '→ 변형에 관한 조건(적합조건)이 추가로 필요', color: 'red' },
+        ],
+        diagram: 'statics-compare',
+      },
+    },
+    {
+      say: '부정정 차수는 미지수가 평형방정식보다 몇 개 더 많은지를 나타냅니다. 보에서는 간단하게 반력 수에서 3을 빼면 돼요. 그림의 보는 고정단에서 반력 세 개, 롤러에서 하나, 합쳐서 네 개니까 4 빼기 3, 1차 부정정입니다. 조건식이 하나 더 필요하다는 뜻이에요.',
+      board: {
+        title: '부정정 차수',
+        points: [
+          '• 부정정 차수 = 미지수 개수 − 평형방정식 개수',
+          '• 일반식 :   N = r + m + k − 2j',
+          '• 보의 경우 :   N = r − 3',
+          { text: '예) 고정단(3) + 롤러(1)  →  N = 4 − 3 = 1차', color: 'blue' },
+        ],
+        diagram: 'propped-beam',
+      },
+    },
+    {
+      say: '부정정 구조물을 푸는 방법은 크게 두 가지입니다. 힘을 미지수로 잡는 응력법, 그리고 변위를 미지수로 잡는 변위법이에요. 오늘 배울 변형일치법은 응력법에 속하고, 처짐각법과 모멘트분배법은 다음 시간에 배울 변위법입니다.',
+      board: {
+        title: '부정정 구조물의 해법 분류',
+        points: [
+          '• 응력법 (유연도법)',
+          '    여분력(힘)을 미지수로  →  적합조건으로 풂',
+          '• 변위법 (강성도법)',
+          '    변위·회전각을 미지수로  →  평형조건으로 풂',
+        ],
+        diagram: 'methods',
+      },
+    },
+    {
+      say: '변형일치법의 첫 단계는 여분력을 하나 골라서 없애는 겁니다. B점의 롤러 반력 R B를 제거하면 A에 고정된 캔틸레버가 남죠. 이 정정 구조물에 등분포하중 w가 작용하면 끝점 B는 아래로 w L의 네제곱 나누기 8 E I 만큼 처집니다.',
+      board: {
+        title: '변형일치법 ①  기본 구조물 만들기',
+        points: [
+          '• 여분력 R_B (B점 롤러 반력)를 제거',
+          '• 남은 구조 = 캔틸레버 (정정 기본구조)',
+          '• 하중 w에 의한 B점 처짐',
+          { text: '    δB1 = wL⁴ / 8EI   ( ↓ )', color: 'red' },
+        ],
+        diagram: 'cantilever-udl',
+      },
+    },
+    {
+      say: '이번에는 하중은 빼고, 아까 제거했던 반력 R B만 끝점에 위로 작용시켜 봅시다. 끝단에 집중하중을 받는 캔틸레버니까 B점은 위로 R B L세제곱 나누기 3 E I 만큼 올라갑니다.',
+      board: {
+        title: '변형일치법 ②  여분력만 작용',
+        points: [
+          '• 같은 캔틸레버에 R_B만 위로 작용',
+          '• 끝단 집중하중 캔틸레버 공식 그대로',
+          '• B점의 처짐',
+          { text: '    δB2 = R_B · L³ / 3EI   ( ↑ )', color: 'red' },
+        ],
+        diagram: 'cantilever-point',
+      },
+    },
+    {
+      say: '실제 구조물에서 B점은 롤러로 받쳐져 있으니까 처짐이 0이어야 합니다. 그래서 하중에 의한 처짐과 R B에 의한 처짐이 서로 같아야 하죠. 이 식을 정리하면 R B는 8분의 3 w L이 됩니다. 이게 바로 변형을 일치시킨다는 뜻이에요.',
+      board: {
+        title: '변형일치법 ③  적합조건',
+        points: [
+          '• 실제 B점은 롤러  →  처짐 = 0',
+          '    δB1 − δB2 = 0',
+          '    wL⁴ / 8EI  =  R_B · L³ / 3EI',
+          { text: '∴  R_B = 3wL / 8', color: 'red', box: true },
+        ],
+        diagram: 'superposition',
+      },
+    },
+    {
+      say: 'R B를 구했으니 나머지는 평형방정식으로 풀면 됩니다. 수직 방향 힘의 평형에서 R A는 8분의 5 w L, A점의 모멘트는 8분의 w L제곱이고 부모멘트예요. 휨모멘트도를 그려 보면 B점에서 8분의 3 L 떨어진 곳에서 최대 정모멘트 128분의 9 w L제곱이 생깁니다.',
+      board: {
+        title: '나머지 반력과 휨모멘트도',
+        points: [
+          '• ΣV = 0 :   R_A = wL − 3wL/8 = 5wL/8',
+          '• ΣM_A = 0 :   M_A = wL²/8  (부모멘트)',
+          '• 최대 정모멘트 : B에서 3L/8 지점',
+          { text: '    M_max = 9wL² / 128', color: 'red' },
+        ],
+        diagram: 'bmd',
+      },
+    },
+    {
+      say: '오늘 내용을 정리하면, 부정정 차수만큼 여분력을 제거하고, 정정 구조물의 처짐을 계산한 다음, 원래 지지조건에 맞게 변형을 일치시켜서 여분력을 구하는 겁니다. 나머지 반력은 평형방정식으로 구하면 되고요.',
+      board: {
+        title: '정리 — 변형일치법 순서',
+        points: [
+          '① 부정정 차수만큼 여분력을 골라 제거',
+          '② 기본 구조물(정정)의 처짐 계산',
+          '③ 적합조건(변형 일치)으로 여분력 결정',
+          '④ 나머지 반력·모멘트는 평형방정식으로',
+          { text: '※ 다음 시간 : 처짐각법, 모멘트분배법', color: 'blue' },
+        ],
+        diagram: null,
+      },
+    },
+    {
+      say: '혹시 질문 있으면 지금 해 주세요. 없으면 오늘은 여기까지 하겠습니다. 다음 시간에는 변위법인 처짐각법을 배웁니다. 수고했어요!',
+      board: null,
+    },
+  ],
+};
+</script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Nanum+Pen+Script&family=Noto+Sans+KR:wght@400;700&display=swap" rel="stylesheet">
 <style>
@@ -38,6 +197,19 @@
   #teacher button:hover{background:rgba(255,255,255,.18)}
   #teacher button.on{background:var(--accent)}
   #teacher label{display:flex;align-items:center;gap:6px;margin-top:8px;color:var(--hud-sub);cursor:pointer}
+  #lecture{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(74px + env(safe-area-inset-bottom,0px));width:min(780px,calc(100vw - 32px));box-sizing:border-box;padding:12px 16px;display:grid;gap:6px}
+  #lecture .lec-top{display:flex;align-items:center;gap:8px;font-size:12px;min-width:0}
+  #lecture .lec-who{background:var(--accent);border-radius:999px;padding:2px 10px;font-weight:700;flex:none}
+  #lecture .lec-step{color:var(--hud-sub);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  #lecture .lec-mini{flex:none;background:rgba(255,255,255,.1);color:var(--hud-fg);border:0;border-radius:6px;padding:4px 9px;font:inherit;font-size:12px;cursor:pointer}
+  #lecture .lec-mini[aria-pressed="true"]{background:var(--accent)}
+  #lecture .lec-text{margin:0;font-size:17px;line-height:1.6;min-height:3.2em;text-wrap:pretty}
+  #lecture .lec-nav{display:flex;gap:8px;justify-content:flex-end}
+  #lecture .lec-nav button{background:rgba(255,255,255,.1);color:var(--hud-fg);border:0;border-radius:8px;padding:8px 16px;font:inherit;font-size:14px;cursor:pointer}
+  #lecture .lec-nav button.primary{background:var(--accent);font-weight:700}
+  #lecture .lec-nav button:hover:not(:disabled){filter:brightness(1.15)}
+  #lecture button:disabled{opacity:.35;cursor:default}
+  @media (max-width:600px){#lecture .lec-text{font-size:15px}#lecture{padding:10px 12px}}
   button:focus-visible,#teacher input:focus-visible{outline:2px solid #9cc2ff;outline-offset:2px}
   @media (max-width:600px){
     #info{max-width:calc(100vw - 150px);font-size:12px;padding:10px 12px}
@@ -64,6 +236,18 @@
     <button data-anim="Pointing">가리키기</button>
   </div>
   <label><input type="checkbox" id="tAuto" checked> 자동 강의</label>
+</div>
+<div id="lecture" class="panel" role="region" aria-label="강의 자막">
+  <div class="lec-top">
+    <span class="lec-who">교수님</span>
+    <span class="lec-step" id="lecStep">강의 전</span>
+    <button class="lec-mini" id="ttsBtn" aria-pressed="false">음성 끔</button>
+  </div>
+  <p class="lec-text" id="lecText" aria-live="polite"></p>
+  <div class="lec-nav">
+    <button id="lecPrev">◀ 이전</button>
+    <button id="lecNext" class="primary">강의 시작 ▶</button>
+  </div>
 </div>
 <div id="views" class="panel">
   <button data-yaw="90">◀ 창가</button>
@@ -233,47 +417,212 @@ function drawArrow(g, x1, y1, x2, y2, s = 14) {
   g.beginPath(); g.moveTo(x2, y2); g.lineTo(x2 - s*Math.cos(a - .45), y2 - s*Math.sin(a - .45));
   g.moveTo(x2, y2); g.lineTo(x2 - s*Math.cos(a + .45), y2 - s*Math.sin(a + .45)); g.stroke();
 }
-const boardTex = canvasTex(2560, 572, (g, w, h) => {
+const INK = { black: '#1b1d21', blue: '#1d4fb8', red: '#c62828', green: '#1f7a3a' };
+const BOARD_W = 2560, BOARD_H = 667;               // 화이트보드 4.8m x 1.25m 비율
+const boardState = { content: (window.LECTURE && LECTURE.cover) || null, reveal: 1, revealing: false };
+const REVEAL_SECS = 1.6;
+
+function bLine(g, x1, y1, x2, y2) { g.beginPath(); g.moveTo(x1, y1); g.lineTo(x2, y2); g.stroke(); }
+function bText(g, s, x, y, color, size, align = 'left') { g.fillStyle = color; g.font = `${size}px ${HAND}`; g.textAlign = align; g.fillText(s, x, y); g.textAlign = 'left'; }
+function bFixed(g, x, y, k) {
+  g.strokeStyle = INK.black; g.lineWidth = 5*k; bLine(g, x, y - 70*k, x, y + 70*k);
+  g.lineWidth = 3*k; for (let t = -60; t <= 60; t += 20) bLine(g, x, y + t*k, x - 22*k, y + (t + 18)*k);
+}
+function bRoller(g, x, y, k) {
+  g.strokeStyle = INK.black; g.lineWidth = 4*k;
+  g.beginPath(); g.moveTo(x, y + 4*k); g.lineTo(x - 26*k, y + 46*k); g.lineTo(x + 26*k, y + 46*k); g.closePath(); g.stroke();
+  [-16, 0, 16].forEach(o => { g.beginPath(); g.arc(x + o*k, y + 56*k, 8*k, 0, Math.PI*2); g.stroke(); });
+}
+function bPin(g, x, y, k) {
+  g.strokeStyle = INK.black; g.lineWidth = 4*k;
+  g.beginPath(); g.moveTo(x, y + 4*k); g.lineTo(x - 26*k, y + 46*k); g.lineTo(x + 26*k, y + 46*k); g.closePath(); g.stroke();
+  bLine(g, x - 36*k, y + 46*k, x + 36*k, y + 46*k);
+  g.lineWidth = 2.5*k; for (let t = -30; t <= 30; t += 15) bLine(g, x + t*k, y + 46*k, x + (t - 12)*k, y + 60*k);
+}
+function bUDL(g, x1, x2, y, k, label = 'w') {
+  g.strokeStyle = INK.red; g.lineWidth = 4*k;
+  bLine(g, x1, y - 110*k, x2, y - 110*k);
+  const n = Math.max(4, Math.round((x2 - x1) / (62*k)));
+  for (let i = 0; i <= n; i++) { const xx = x1 + (x2 - x1)*i/n; drawArrow(g, xx, y - 110*k, xx, y - 8*k, 14*k); }
+  bText(g, label, (x1 + x2)/2, y - 128*k, INK.red, 64*k, 'center');
+}
+function bDim(g, x1, x2, y, k, label) {
+  g.strokeStyle = INK.black; g.lineWidth = 3*k;
+  drawArrow(g, (x1 + x2)/2, y, x1, y, 16*k); drawArrow(g, (x1 + x2)/2, y, x2, y, 16*k);
+  bText(g, label, (x1 + x2)/2, y + 58*k, INK.black, 56*k, 'center');
+}
+function bCurve(g, x1, x2, y, defl, k, shape, color) {
+  g.strokeStyle = color; g.lineWidth = 4*k; g.setLineDash([16*k, 11*k]);
+  g.beginPath();
+  for (let i = 0; i <= 40; i++) { const t = i/40; const px = x1 + (x2 - x1)*t, py = y + defl*shape(t); i ? g.lineTo(px, py) : g.moveTo(px, py); }
+  g.stroke(); g.setLineDash([]);
+}
+const SHAPE_UDL = t => t*t*(6 - 4*t + t*t)/3;      // 등분포하중 캔틸레버 처짐곡선 (끝 = 1)
+const SHAPE_TIP = t => t*t*(3 - t)/2;              // 끝단 집중하중 캔틸레버 처짐곡선 (끝 = 1)
+
+const kt = k => Math.max(k, 0.8);          // 작은 그림에서도 글씨는 읽을 수 있게
+// 공통: 박스 안에 보 하나 그리기
+function beamScene(g, x, y, w, h, o = {}) {
+  const k = h/470, x1 = x + 0.14*w, x2 = x + 0.86*w, yb = y + 0.5*h;
+  if (o.load !== false) bUDL(g, x1, x2, yb, k);
+  g.strokeStyle = INK.black; g.lineWidth = 7*k; bLine(g, x1, yb, x2, yb);
+  if (o.left === 'pin') bPin(g, x1, yb, k); else bFixed(g, x1, yb, k);
+  if (o.right === 'roller') bRoller(g, x2, yb, k);
+  if (o.labels !== false) { bText(g, 'A', x1 - 66*k, yb - 70*k, INK.black, 56*kt(k)); bText(g, 'B', x2 + 34*k, yb - 22*k, INK.black, 56*kt(k)); }
+  if (o.dims) bDim(g, x1, x2, yb + 190*k, k, 'L');
+  return { x1, x2, yb, k };
+}
+
+const DIAGRAMS = {
+  'propped-beam': (g, x, y, w, h) => {
+    const { x1, x2, yb, k } = beamScene(g, x, y, w, h, { left: 'fixed', right: 'roller', dims: true });
+    g.strokeStyle = INK.blue; g.lineWidth = 4*k;
+    drawArrow(g, x2, yb + 150*k, x2, yb + 70*k, 14*k);
+    bText(g, 'R_B', x2 + 18*k, yb + 150*k, INK.blue, 50*kt(k));
+    drawArrow(g, x1 + 34*k, yb + 130*k, x1 + 34*k, yb + 12*k, 14*k);
+    bText(g, 'R_A', x1 + 48*k, yb + 128*k, INK.blue, 50*kt(k));
+    g.beginPath(); g.arc(x1, yb, 92*k, Math.PI*0.62, Math.PI*1.25); g.stroke();
+    const ax = x1 + 92*k*Math.cos(Math.PI*1.25), ay = yb + 92*k*Math.sin(Math.PI*1.25);
+    drawArrow(g, ax - 10*k, ay + 10*k, ax + 4*k, ay - 4*k, 14*k);
+    bText(g, 'M_A', x1 - 150*k, yb + 120*k, INK.blue, 50*kt(k));
+  },
+  'statics-compare': (g, x, y, w, h) => {
+    const hh = h/2;
+    beamScene(g, x, y - 10, w, hh, { left: 'pin', right: 'roller' });
+    bText(g, '정정 : 미지수 3 = 식 3', x + w/2, y + hh - 4, INK.black, 50, 'center');
+    beamScene(g, x, y + hh - 10, w, hh, { left: 'fixed', right: 'roller' });
+    bText(g, '부정정 : 미지수 4 > 식 3', x + w/2, y + h - 4, INK.red, 50, 'center');
+  },
+  'methods': (g, x, y, w, h) => {
+    const box = (cx, cy, bw, bh, label, color) => {
+      g.strokeStyle = color; g.lineWidth = 4; g.beginPath();
+      if (g.roundRect) g.roundRect(cx - bw/2, cy - bh/2, bw, bh, 18); else g.rect(cx - bw/2, cy - bh/2, bw, bh);
+      g.stroke(); bText(g, label, cx, cy + 18, color, 54, 'center');
+    };
+    const cx = x + w/2, l = x + w*0.25, r = x + w*0.75;
+    box(cx, y + 45, 520, 80, '부정정 구조물 해법', INK.black);
+    g.strokeStyle = INK.black; g.lineWidth = 3;
+    bLine(g, cx, y + 85, cx, y + 120); bLine(g, l, y + 120, r, y + 120); bLine(g, l, y + 120, l, y + 150); bLine(g, r, y + 120, r, y + 150);
+    box(l, y + 190, 420, 80, '응력법 (유연도법)', INK.blue);
+    box(r, y + 190, 420, 80, '변위법 (강성도법)', INK.red);
+    ['변형일치법', '3연모멘트법', '최소일의 원리'].forEach((s, i) => bText(g, '· ' + s, l - 150, y + 300 + i*62, i === 0 ? INK.blue : INK.black, 52));
+    ['처짐각법', '모멘트분배법'].forEach((s, i) => bText(g, '· ' + s, r - 150, y + 300 + i*62, INK.black, 52));
+    g.strokeStyle = INK.blue; g.lineWidth = 3; g.beginPath(); g.ellipse(l - 30, y + 284, 180, 40, 0, 0, Math.PI*2); g.stroke();
+    bText(g, '오늘!', l + 170, y + 270, INK.blue, 44);
+  },
+  'cantilever-udl': (g, x, y, w, h) => {
+    const { x1, x2, yb, k } = beamScene(g, x, y, w, h, { left: 'fixed', load: true });
+    bCurve(g, x1, x2, yb, 80*k, k, SHAPE_UDL, INK.red);
+    g.strokeStyle = INK.red; g.lineWidth = 3*k; drawArrow(g, x2 + 40*k, yb, x2 + 40*k, yb + 80*k, 12*k);
+    bText(g, 'δB1', x2 + 52*k, yb + 70*k, INK.red, 52*kt(k));
+    bText(g, '기본 구조물 (캔틸레버)', (x1 + x2)/2, yb + 175*k, INK.black, 50*kt(k), 'center');
+  },
+  'cantilever-point': (g, x, y, w, h) => {
+    const { x1, x2, yb, k } = beamScene(g, x, y, w, h, { left: 'fixed', load: false });
+    g.strokeStyle = INK.blue; g.lineWidth = 4*k; drawArrow(g, x2, yb + 140*k, x2, yb + 10*k, 14*k);
+    bText(g, 'R_B', x2 + 16*k, yb + 150*k, INK.blue, 52*kt(k));
+    bCurve(g, x1, x2, yb, -80*k, k, SHAPE_TIP, INK.red);
+    g.strokeStyle = INK.red; g.lineWidth = 3*k; drawArrow(g, x2 + 46*k, yb, x2 + 46*k, yb - 80*k, 12*k);
+    bText(g, 'δB2', x2 + 58*k, yb - 50*k, INK.red, 52*kt(k));
+  },
+  'superposition': (g, x, y, w, h) => {
+    DIAGRAMS['cantilever-udl'](g, x + 40, y, w - 40, h/2);
+    DIAGRAMS['cantilever-point'](g, x + 40, y + h/2, w - 40, h/2);
+    bText(g, '+', x + 10, y + h/2 + 20, INK.black, 80, 'center');
+    bText(g, 'B점 처짐 = 0', x + w - 20, y + h - 6, INK.red, 50, 'right');
+  },
+  'bmd': (g, x, y, w, h) => {
+    const top = beamScene(g, x, y + 10, w, h*0.42, { left: 'fixed', right: 'roller' });
+    const { x1, x2 } = top, y0 = y + h*0.7, amp = h*0.24/0.125;
+    const M = t => -1/8 + 5/8*t - t*t/2;            // 단위 wL², t = A로부터 거리 / L
+    g.strokeStyle = INK.black; g.lineWidth = 3; bLine(g, x1, y0, x2, y0);
+    const path = () => { g.beginPath(); g.moveTo(x1, y0); for (let i = 0; i <= 60; i++) { const t = i/60; g.lineTo(x1 + (x2 - x1)*t, y0 + M(t)*amp); } g.lineTo(x2, y0); g.closePath(); };
+    g.fillStyle = 'rgba(29,79,184,.10)'; path(); g.fill();
+    g.strokeStyle = INK.blue; g.lineWidth = 4; g.beginPath();
+    for (let i = 0; i <= 60; i++) { const t = i/60; const px = x1 + (x2 - x1)*t, py = y0 + M(t)*amp; i ? g.lineTo(px, py) : g.moveTo(px, py); } g.stroke();
+    bText(g, '−wL²/8', x1 + 14, y0 + M(0)*amp - 12, INK.red, 46);
+    const tm = 5/8, xm = x1 + (x2 - x1)*tm, ym = y0 + M(tm)*amp;
+    g.strokeStyle = INK.red; g.lineWidth = 2.5; g.setLineDash([8, 7]); bLine(g, xm, y0, xm, ym); g.setLineDash([]);
+    bText(g, '+9wL²/128', xm, ym + 50, INK.red, 46, 'center');
+    g.strokeStyle = INK.black; g.lineWidth = 2.5; drawArrow(g, (xm + x2)/2, y0 - 26, xm, y0 - 26, 12); drawArrow(g, (xm + x2)/2, y0 - 26, x2, y0 - 26, 12);
+    bText(g, '3L/8', (xm + x2)/2, y0 - 38, INK.black, 40, 'center');
+    bText(g, 'BMD', x + w - 10, y0 + 130, INK.black, 44, 'right');
+  },
+};
+
+function drawDiagram(g, d, x, y, w, h) {
+  try {
+    if (typeof d === 'function') d(g, x, y, w, h);
+    else if (DIAGRAMS[d]) DIAGRAMS[d](g, x, y, w, h);
+    else if (d) bText(g, `(그림 "${d}" 없음)`, x + w/2, y + h/2, INK.red, 48, 'center');
+  } catch (err) { console.error('[lecture] 그림 그리기 오류:', d, err); }
+}
+
+function wrapLines(g, text, maxW) {
+  const out = []; let line = '';
+  for (const ch of text) {
+    const test = line + ch;
+    if (g.measureText(test).width > maxW && line) { const sp = line.lastIndexOf(' '); if (sp > line.length*0.5) { out.push(line.slice(0, sp)); line = line.slice(sp + 1) + ch; } else { out.push(line); line = ch; } }
+    else line = test;
+  }
+  if (line) out.push(line);
+  return out;
+}
+
+function drawBoard(g, w, h, c, reveal = 1) {
+  let sd = 4242; const r = () => (sd = sd*16807 % 2147483647) / 2147483647;
   g.fillStyle = '#fbfcfc'; g.fillRect(0, 0, w, h);
   const glare = g.createLinearGradient(0, 0, w, h);
   glare.addColorStop(0, 'rgba(225,230,235,.5)'); glare.addColorStop(.45, 'rgba(255,255,255,0)'); glare.addColorStop(1, 'rgba(220,225,230,.45)');
   g.fillStyle = glare; g.fillRect(0, 0, w, h);
-  // 지우개 자국
-  for (let i = 0; i < 6; i++) { g.fillStyle = `rgba(150,160,175,${.03 + rand()*.04})`; g.beginPath(); g.ellipse(rand()*w, rand()*h, 120 + rand()*160, 30 + rand()*40, rand(), 0, Math.PI*2); g.fill(); }
+  for (let i = 0; i < 6; i++) { g.fillStyle = `rgba(150,160,175,${.03 + r()*.04})`; g.beginPath(); g.ellipse(r()*w, r()*h, 120 + r()*160, 30 + r()*40, r(), 0, Math.PI*2); g.fill(); }
+  if (!c) return;
   g.lineCap = 'round'; g.lineJoin = 'round';
+  const pts = c.points || [], hasD = !!c.diagram;
+  const items = 1 + pts.length + (hasD ? 1 : 0);
+  const shown = reveal*items, vis = i => Math.max(0, Math.min(1, shown - i));
 
-  g.fillStyle = '#1d4fb8'; g.font = `82px ${HAND}`;
-  g.fillText('12장  부정정 구조물의 해법  —  변형일치법', 70, 100);
-  g.strokeStyle = '#1d4fb8'; g.lineWidth = 4; g.beginPath(); g.moveTo(70, 118); g.lineTo(1180, 122); g.stroke();
+  g.globalAlpha = vis(0);
+  bText(g, c.title || '', 70, 105, INK.blue, 86);
+  g.font = `86px ${HAND}`;
+  g.strokeStyle = INK.blue; g.lineWidth = 4; bLine(g, 70, 124, 70 + Math.min(w - 140, g.measureText(c.title || '').width + 30), 128);
 
-  // 보 그림
-  const bx1 = 150, bx2 = 900, by = 330;
-  g.strokeStyle = '#1b1d21'; g.lineWidth = 7; g.beginPath(); g.moveTo(bx1, by); g.lineTo(bx2, by); g.stroke();
-  g.lineWidth = 5; g.beginPath(); g.moveTo(bx1, by - 70); g.lineTo(bx1, by + 70); g.stroke();
-  g.lineWidth = 3; for (let k = -60; k <= 60; k += 20) { g.beginPath(); g.moveTo(bx1, by + k); g.lineTo(bx1 - 22, by + k + 18); g.stroke(); }
-  g.lineWidth = 4; g.beginPath(); g.moveTo(bx2, by); g.lineTo(bx2 - 26, by + 44); g.lineTo(bx2 + 26, by + 44); g.closePath(); g.stroke();
-  [-16, 0, 16].forEach(o => { g.beginPath(); g.arc(bx2 + o, by + 54, 8, 0, Math.PI*2); g.stroke(); });
-  g.strokeStyle = '#c62828'; g.lineWidth = 4;
-  g.beginPath(); g.moveTo(bx1, by - 110); g.lineTo(bx2, by - 110); g.stroke();
-  for (let x = bx1; x <= bx2; x += 62.5) drawArrow(g, x, by - 110, x, by - 8, 14);
-  g.fillStyle = '#c62828'; g.font = `68px ${HAND}`; g.fillText('w', (bx1 + bx2)/2 - 12, by - 128);
-  g.strokeStyle = '#1b1d21'; g.lineWidth = 3;
-  drawArrow(g, (bx1 + bx2)/2, by + 120, bx1, by + 120, 16); drawArrow(g, (bx1 + bx2)/2, by + 120, bx2, by + 120, 16);
-  g.fillStyle = '#1b1d21'; g.font = `60px ${HAND}`; g.fillText('L', (bx1 + bx2)/2 - 10, by + 175);
-  g.fillText('A', bx1 - 70, by - 80); g.fillText('B', bx2 + 40, by - 20);
-  g.strokeStyle = '#1d4fb8'; drawArrow(g, bx2, by + 160, bx2, by + 72, 14);
-  g.fillStyle = '#1d4fb8'; g.font = `54px ${HAND}`; g.fillText('R', bx2 + 18, by + 160); g.font = `36px ${HAND}`; g.fillText('B', bx2 + 46, by + 170);
+  const colW = hasD ? 1290 : w - 160;
+  // 줄이 넘치면 글자 크기를 줄임
+  let size = 60, layout;
+  for (; size >= 38; size -= 4) {
+    g.font = `${size}px ${HAND}`;
+    layout = pts.map(p => { const o = typeof p === 'string' ? { text: p } : p; return { o, lines: wrapLines(g, o.text || '', colW) }; });
+    const total = layout.reduce((s, it) => s + it.lines.length, 0)*size*1.32 + pts.length*8;
+    if (205 + total < h - 20) break;
+  }
+  let y = 205, idx = 1;
+  layout.forEach(({ o, lines }) => {
+    g.globalAlpha = vis(idx++);
+    const y0 = y;
+    lines.forEach(l => { bText(g, l, 75, y, INK[o.color] || INK.black, size); y += size*1.32; });
+    if (o.box) {
+      g.font = `${size}px ${HAND}`;
+      const bw = Math.max(...lines.map(l => g.measureText(l).width));
+      g.strokeStyle = INK[o.color] || INK.black; g.lineWidth = 4; g.strokeRect(55, y0 - size*0.95, bw + 45, y - y0 + size*0.05);
+    }
+    y += 8;
+  });
+  if (hasD) { g.globalAlpha = vis(idx); drawDiagram(g, c.diagram, 1430, 165, 1060, 470); }
+  g.globalAlpha = 1;
+}
 
-  // 풀이
-  g.fillStyle = '#1b1d21'; g.font = `62px ${HAND}`;
-  const lx = 1180;
-  g.fillText('①  부정정 차수 :  r − 3  =  4 − 3  =  1차', lx, 210);
-  g.fillText('②  적합조건 :  δ_B1 − δ_B2 = 0', lx, 290);
-  g.fillText('      wL⁴ / 8EI  =  R_B · L³ / 3EI', lx, 365);
-  g.fillStyle = '#c62828'; g.fillText('∴  R_B = 3wL / 8 ,    M_A = wL² / 8', lx, 455);
-  g.strokeStyle = '#c62828'; g.lineWidth = 4; g.strokeRect(lx - 20, 400, 1010, 78);
-  g.fillStyle = '#1d4fb8'; g.font = `46px ${HAND}`; g.fillText('※ 다음 시간: 처짐각법, 모멘트분배법', lx + 380, 545);
-});
+const boardTex = canvasTex(BOARD_W, BOARD_H, (g, w, h) => drawBoard(g, w, h, boardState.content, boardState.reveal));
+function showOnBoard(content, animate = true) {
+  boardState.content = content; boardState.reveal = animate ? 0 : 1; boardState.revealing = animate;
+  redraw(boardTex);
+}
+function updateBoard(dt) {
+  if (!boardState.revealing) return;
+  boardState.reveal = Math.min(1, boardState.reveal + dt/REVEAL_SECS);
+  if (boardState.reveal >= 1) boardState.revealing = false;
+  redraw(boardTex);
+}
 
 /* 프로젝터 슬라이드 */
 const slideTex = canvasTex(1600, 1000, (g, w, h) => {
@@ -379,6 +728,7 @@ const M = {
 };
 
 const clickTargets = {};
+const screenAnim = { mesh: null, bar: null, cur: 1, target: 1, sTop: 0, sh: 1 };
 
 /* ---------- 방 ---------- */
 const room = new THREE.Group(); scene.add(room);
@@ -459,7 +809,8 @@ const room = new THREE.Group(); scene.add(room);
   room.add(box(sw + 0.24, 0.12, 0.14, M.white, sx, H - 0.08, sz));
   room.add(box(0.008, sTop > 0 ? H - 0.14 - sTop : 0.1, 0.004, M.black, sx, (H - 0.14 + sTop)/2, sz, { cast: false }));
   const screenMesh = mesh(new THREE.PlaneGeometry(sw, sh), M.screen, sx, sTop - sh/2, sz, { cast: false, receive: false }); room.add(screenMesh); clickTargets.screen = screenMesh;
-  room.add(box(sw + 0.04, 0.03, 0.03, M.black, sx, sTop - sh - 0.015, sz));
+  const screenBar = box(sw + 0.04, 0.03, 0.03, M.black, sx, sTop - sh - 0.015, sz); room.add(screenBar);
+  Object.assign(screenAnim, { mesh: screenMesh, bar: screenBar, sTop, sh });
   // 천장 프로젝터
   const pz = -3.0;
   room.add(box(0.05, 0.25, 0.05, M.aluDark, sx, H - 0.125, pz));
@@ -801,8 +1152,13 @@ function buildTeacher(gltf) {
   mixer.addEventListener('finished', e => { if (e.action === teacher.current) { if (teacher.auto) nextAuto(); else playAnim('Idle'); } });
   Object.assign(teacher, { model: holder, mixer });
 
-  playAnim('Waving', true);          // 처음엔 학생들에게 인사
-  teacher.waitFinish = true; teacher.step = -1;
+  if (typeof lec !== 'undefined' && lec.i >= 0) {   // 아바타가 늦게 불러와졌는데 강의가 이미 진행 중이면 그 상태에 맞춤
+    playAnim(lec.phase === 'point' ? 'Pointing' : lec.phase === 'talk' ? 'Talking' : 'Idle', lec.phase === 'point');
+    teacher.waitFinish = true;
+  } else {
+    playAnim('Waving', true);        // 처음엔 학생들에게 인사
+    teacher.waitFinish = true; teacher.step = -1;
+  }
 }
 
 function playAnim(key, once) {
@@ -870,6 +1226,125 @@ if (THREE.GLTFLoader) {
   });
 } else { tStatus.textContent = '3D 로더를 불러오지 못했습니다.'; }
 
+/* ---------- 강의 진행 ---------- */
+const CHARS_PER_SEC = 9;          // 자막이 나오는 속도 (글자/초)
+const POINT_TO_BOARD = 0.6;       // 가리키기 시작 후 칠판에 글이 나타나기까지 (초)
+const POINT_TO_TALK = 1.9;        // 가리키기 시작 후 말하기 시작까지 (초)
+const lec = { i: -1, phase: 'ready', timer: 0, text: '', shown: -1, chars: 0, ttsOn: false, ttsDone: true, hold: 0, savedAuto: true };
+const lecText = document.getElementById('lecText'), lecStep = document.getElementById('lecStep');
+const lecPrev = document.getElementById('lecPrev'), lecNext = document.getElementById('lecNext'), ttsBtn = document.getElementById('ttsBtn');
+const lecWrap = document.getElementById('lecture');
+
+function boardFor(i) { for (let k = i; k >= 0; k--) if (LECTURE.steps[k].board) return LECTURE.steps[k].board; return LECTURE.cover; }
+function teacherDo(key) { if (!teacher.mixer) return; playAnim(key, key === 'Pointing' || key === 'Waving'); teacher.waitFinish = true; }
+
+function setSubtitle(s) { lecText.textContent = s; }
+function updateLecUI() {
+  const n = LECTURE.steps.length;
+  if (lec.i < 0) { lecStep.textContent = '강의 전'; lecPrev.disabled = true; lecNext.textContent = '강의 시작 ▶'; return; }
+  const b = boardFor(lec.i);
+  lecStep.textContent = `${lec.i + 1} / ${n} · ${b ? b.title.replace(/\s+/g, ' ') : ''}`;
+  lecPrev.disabled = lec.i === 0;
+  lecNext.textContent = lec.i === n - 1 ? '강의 마치기 ■' : '다음 ▶';
+}
+
+function startLecture() {
+  lec.savedAuto = teacher.auto; teacher.auto = false; tAuto.checked = false;
+  screenAnim.target = 0;                    // 화이트보드가 보이게 스크린을 말아 올림
+  tAuto.disabled = true;
+  lecWrap.classList.add('on');
+}
+function endLecture() {
+  stopSpeech();
+  lec.i = -1; lec.phase = 'ready';
+  screenAnim.target = 1; tAuto.disabled = false;
+  showOnBoard(LECTURE.cover, false);
+  teacherDo('Waving');
+  teacher.auto = lec.savedAuto; tAuto.checked = lec.savedAuto; teacher.step = -1;
+  setSubtitle(`강의가 끝났습니다. ‘강의 시작’을 누르면 처음부터 다시 듣습니다.`);
+  lecWrap.classList.remove('on');
+  updateLecUI();
+}
+
+function goStep(i) {
+  const n = LECTURE.steps.length;
+  if (i >= n) { endLecture(); return; }
+  i = Math.max(0, i);
+  if (lec.i < 0) startLecture();
+  stopSpeech();
+  const prevBoard = lec.i >= 0 ? boardFor(lec.i) : boardState.content;
+  lec.i = i;
+  const st = LECTURE.steps[i];
+  lec.text = st.say || ''; lec.chars = 0; lec.shown = -1; setSubtitle('');
+  const nb = boardFor(i);
+  if (nb && nb !== prevBoard) {           // 새 칠판 내용 → 먼저 칠판을 가리키고, 글을 띄운 뒤 설명
+    lec.phase = 'point'; lec.timer = 0; lec.boardShown = false; lec.nextBoard = nb;
+    teacherDo('Pointing');
+  } else beginTalk();
+  updateLecUI();
+}
+function beginTalk() {
+  lec.phase = 'talk'; lec.hold = 0;
+  teacherDo('Talking');
+  lec.ttsDone = !lec.ttsOn;
+  if (lec.ttsOn) speak(lec.text);
+}
+function updateLecture(dt) {
+  if (lec.phase === 'point') {
+    lec.timer += dt;
+    if (!lec.boardShown && lec.timer >= POINT_TO_BOARD) { lec.boardShown = true; showOnBoard(lec.nextBoard, true); }
+    if (lec.timer >= POINT_TO_TALK) beginTalk();
+  } else if (lec.phase === 'talk') {
+    lec.chars = Math.min(lec.text.length, lec.chars + dt*CHARS_PER_SEC);
+    const c = Math.floor(lec.chars);
+    if (c !== lec.shown) { lec.shown = c; setSubtitle(lec.text.slice(0, c)); }
+    if (c >= lec.text.length && lec.ttsDone) { lec.hold += dt; if (lec.hold > 0.8) { lec.phase = 'done'; teacherDo('Idle'); } }
+  }
+}
+
+// 음성 (브라우저 TTS, 한국어 목소리가 있으면 사용)
+const synth = window.speechSynthesis;
+function speak(text) {
+  if (!synth) { lec.ttsDone = true; return; }
+  const u = new SpeechSynthesisUtterance(text.replace(/R B/g, '알 비').replace(/R A/g, '알 에이'));
+  u.lang = 'ko-KR'; u.rate = 1.05;
+  const v = synth.getVoices().find(v => /^ko/i.test(v.lang)); if (v) u.voice = v;
+  u.onend = u.onerror = () => { if (lec.utter === u) lec.ttsDone = true; };
+  lec.utter = u; synth.speak(u);
+  setTimeout(() => { if (lec.utter === u) lec.ttsDone = true; }, (text.length/3 + 5)*1000);   // 안전장치
+}
+function stopSpeech() { lec.utter = null; if (synth) synth.cancel(); lec.ttsDone = true; }
+if (!synth) ttsBtn.hidden = true;
+ttsBtn.addEventListener('click', () => {
+  lec.ttsOn = !lec.ttsOn;
+  ttsBtn.textContent = lec.ttsOn ? '음성 켬' : '음성 끔';
+  ttsBtn.setAttribute('aria-pressed', lec.ttsOn);
+  if (!lec.ttsOn) stopSpeech();
+  else if (lec.phase === 'talk') { lec.ttsDone = false; speak(lec.text.slice(Math.floor(lec.chars))); }
+});
+
+lecNext.addEventListener('click', () => goStep(lec.i + 1));
+lecPrev.addEventListener('click', () => goStep(lec.i - 1));
+window.addEventListener('keydown', e => {
+  if (e.target && (e.target.tagName === 'INPUT' || (e.target.tagName === 'BUTTON' && e.key === 'Enter'))) return;
+  if (e.key === 'PageDown' || e.key === 'Enter' || e.key.toLowerCase() === 'n') { e.preventDefault(); goStep(lec.i + 1); }
+  else if (e.key === 'PageUp' || e.key.toLowerCase() === 'p') { e.preventDefault(); if (lec.i > 0) goStep(lec.i - 1); }
+});
+setSubtitle(`안녕하세요! 오늘은 「${LECTURE.title}」 강의입니다. 아래 ‘강의 시작’을 누르면 시작합니다.`);
+updateLecUI();
+{ const q = new URLSearchParams(location.search); if (q.has('step')) { goStep(+q.get('step')); for (let k = 0; k < (+q.get('sim') || 0); k++) { updateLecture(0.05); updateBoard(0.05); updateScreen(0.05); } } }
+
+// 스크린 말아 올리기 / 내리기
+function updateScreen(dt) {
+  const s = screenAnim; if (!s.mesh) return;
+  if (Math.abs(s.cur - s.target) < 1e-4) return;
+  s.cur += Math.sign(s.target - s.cur)*Math.min(Math.abs(s.target - s.cur), dt*0.6);
+  const c = Math.max(0.0001, s.cur);
+  s.mesh.scale.y = c; s.mesh.position.y = s.sTop - s.sh*c/2; s.mesh.visible = c > 0.005;
+  slideTex.repeat.y = c; slideTex.offset.y = 0;
+  s.bar.position.y = s.sTop - s.sh*c - 0.015;
+}
+
 /* ---------- 루프 ---------- */
 const clockHands = window.__clockHands;
 let last = performance.now(), hudTimer = 0;
@@ -894,6 +1369,7 @@ function frame(now) {
 
   if ((hudTimer += dt) > 0.1) { hudTimer = 0; updateHud(); }
   updateTeacher(dt);
+  updateLecture(dt); updateBoard(dt); updateScreen(dt);
   renderer.render(scene, camera);
   requestAnimationFrame(frame);
 }
