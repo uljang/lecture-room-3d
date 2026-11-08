@@ -150,9 +150,9 @@ window.LECTURE = {
     },
   ],
 
-  // 강의 마지막 객관식 퀴즈 (정답이면 아바타가 춤추고, 틀리면 explain 을 읽어 줌)
+  // 강의 마지막 객관식 퀴즈 (정답이면 아바타가 춤추고, 틀리면 해설 + '다시 풀기' 버튼)
   //   question : 문제     choices : 보기 4개     answer : 정답 번호 (0부터 시작! 0=①, 1=②, 2=③, 3=④)
-  //   explain  : 틀렸을 때 해설 (대사)     praise : 맞혔을 때 한마디 (생략 가능)     diagram : 칠판 오른쪽 그림 (생략 가능)
+  //   explain  : 틀렸을 때 해설 (대사, 정답 번호는 말하지 않게 쓰는 것을 권장 — 다시 풀기가 있으므로)     praise : 맞혔을 때 한마디 (생략 가능)     diagram : 칠판 오른쪽 그림 (생략 가능)
   quiz: [
     {
       question: '부정정 구조물에 대한 설명으로 옳은 것은?',
@@ -199,6 +199,7 @@ window.LECTURE = {
     --ok:#1f8a4c;
     --bad:#c0392b;
   }
+  [hidden]{display:none !important}
   html,body{margin:0;height:100%;overflow:hidden;background:#1a1d22;font-family:'Noto Sans KR',system-ui,sans-serif}
   canvas{display:block;cursor:grab;touch-action:none}
   canvas.drag{cursor:grabbing}
@@ -257,14 +258,9 @@ window.LECTURE = {
   #lecture .lec-quiz button{text-align:left;background:rgba(255,255,255,.1);color:var(--hud-fg);border:1px solid rgba(255,255,255,.14);border-radius:8px;padding:8px 10px;font:inherit;font-size:14px;cursor:pointer;min-width:0}
   #lecture .lec-quiz button:hover:not(:disabled){background:rgba(255,255,255,.2)}
   #lecture .lec-quiz button.ok{background:var(--ok);border-color:var(--ok);opacity:1}
-  #lecture .lec-quiz button.bad{background:var(--bad);border-color:var(--bad);opacity:1}
-  #voiceBtn{position:fixed;right:calc(16px + env(safe-area-inset-right,0px));bottom:calc(18px + env(safe-area-inset-bottom,0px));display:flex;align-items:center;gap:6px;padding:9px 13px;color:var(--hud-fg);font:inherit;font-size:13px;cursor:pointer}
-  #voiceBtn:hover{filter:brightness(1.2)}
-  #voiceBtn .mute{display:none}
-  #voiceBtn.off .mute{display:inline}
-  #voiceBtn.off .wave{display:none}
-  #voiceBtn.off{color:var(--hud-sub)}
-  @media (max-width:820px){#voiceBtn{bottom:auto;top:calc(16px + env(safe-area-inset-top,0px));right:auto;left:50%;transform:translateX(-50%)}}
+  #lecture .lec-quiz button.bad{background:var(--bad);border-color:var(--bad);opacity:.75;text-decoration:line-through}
+  #lecture .lec-quiz button.retry{grid-column:1 / -1;text-align:center;background:#ffd166;border-color:#ffd166;color:#1a1d22;font-weight:700;font-size:15px}
+  #lecture .lec-quiz button.retry:hover{background:#ffdd88}
   @media (max-width:600px){#lecture .lec-quiz{grid-template-columns:1fr}#lecture .lec-speed span{display:none}}
   #lecture .lec-text{margin:0;font-size:17px;line-height:1.6;min-height:3.2em;text-wrap:pretty}
   #lecture .lec-nav{display:flex;gap:8px;justify-content:flex-end}
@@ -299,7 +295,7 @@ window.LECTURE = {
       <button type="button" class="st-primary" id="stStart">강의 시작</button>
       <button type="button" class="st-secondary" id="stLook">강의실 둘러보기</button>
     </div>
-    <p class="st-note">교수님이 한국어 음성으로 설명합니다. 소리는 오른쪽 아래 버튼으로 끌 수 있어요.<br><span class="st-load" id="stLoad">교수님 입장 중…</span></p>
+    <p class="st-note">강의는 자막으로 진행돼요. 자막 속도는 자막창 오른쪽 위 배속 버튼으로 바꿀 수 있어요.<br><span class="st-load" id="stLoad">교수님 입장 중…</span></p>
   </div>
 </div>
 <div id="info" class="panel">
@@ -321,10 +317,6 @@ window.LECTURE = {
   </div>
   <label><input type="checkbox" id="tAuto" checked> 자동 강의</label>
 </div>
-<button id="voiceBtn" class="panel" type="button" aria-pressed="true">
-  <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M4 9v6h4l5 4V5L8 9H4z" fill="currentColor"/><path class="wave" d="M16 8.5a5 5 0 0 1 0 7M18.5 6a8.5 8.5 0 0 1 0 12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path class="mute" d="M16 9l5 6M21 9l-5 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
-  <span id="voiceLabel">음성 켜짐</span>
-</button>
 <div id="lecture" class="panel" role="region" aria-label="강의 자막">
   <div class="lec-top">
     <span class="lec-who">교수님</span>
@@ -730,10 +722,10 @@ function drawQuiz(g, w, h, c, reveal) {
   g.globalAlpha = vis(0);
   bText(g, c.title || '', 70, 105, INK.blue, 86);
   g.font = `86px ${HAND}`; g.strokeStyle = INK.blue; g.lineWidth = 4; bLine(g, 70, 124, 70 + g.measureText(c.title || '').width + 30, 128);
-  if (qz.chosen !== null && qz.chosen !== undefined) {
-    const ok = qz.chosen === qz.answer;
-    bText(g, ok ? 'O  정답!' : 'X  오답', w - 90, 112, ok ? INK.green : INK.red, 88, 'right');
-  }
+  const wrong = qz.wrong || [];
+  if (qz.solved) bText(g, 'O  정답!', w - 90, 112, INK.green, 88, 'right');
+  else if (qz.chosen !== null && qz.chosen !== undefined) bText(g, 'X  오답', w - 90, 112, INK.red, 88, 'right');
+  else if (wrong.length) bText(g, '다시 도전!', w - 90, 112, INK.blue, 72, 'right');
   const colW = hasD ? 1290 : w - 200;
   let qs = 58, cs = 54, qLines, cLines;
   for (; qs >= 36; qs -= 4, cs -= 4) {
@@ -749,15 +741,15 @@ function drawQuiz(g, w, h, c, reveal) {
   boardState.choiceRects = [];
   cLines.forEach((lines, k) => {
     g.globalAlpha = vis(2 + k);
-    const answered = qz.chosen !== null && qz.chosen !== undefined;
-    const color = !answered ? INK.blue : k === qz.answer ? INK.green : k === qz.chosen ? INK.red : '#8a9099';
+    const isWrong = wrong.includes(k);
+    const color = qz.solved ? (k === qz.answer ? INK.green : isWrong ? INK.red : '#8a9099') : isWrong ? INK.red : INK.blue;
     const y0 = y;
     g.font = `${cs}px ${HAND}`;
     const bw = Math.max(...lines.map(l => g.measureText(l).width));
     lines.forEach(l => { bText(g, l, 115, y, color, cs); y += cs*1.28; });
     boardState.choiceRects.push([85, y0 - cs*1.05, bw + 70, y - y0 + cs*0.2]);
-    if (answered && k === qz.answer) { g.strokeStyle = INK.green; g.lineWidth = 4; g.beginPath(); g.ellipse(115 + cs*0.42, y0 - cs*0.32, cs*0.62, cs*0.58, 0, 0, Math.PI*2); g.stroke(); }
-    if (answered && k === qz.chosen && k !== qz.answer) { g.strokeStyle = INK.red; g.lineWidth = 5; bLine(g, 105, y0 - cs*0.32, 125 + bw, y0 - cs*0.36); }
+    if (qz.solved && k === qz.answer) { g.strokeStyle = INK.green; g.lineWidth = 4; g.beginPath(); g.ellipse(115 + cs*0.42, y0 - cs*0.32, cs*0.62, cs*0.58, 0, 0, Math.PI*2); g.stroke(); }
+    if (isWrong) { g.strokeStyle = INK.red; g.lineWidth = 5; bLine(g, 105, y0 - cs*0.32, 125 + bw, y0 - cs*0.36); }
     y += 10;
   });
   if (hasD) { g.globalAlpha = vis(items - 1); drawDiagram(g, qz.diagram, 1430, 165, 1060, 470); }
@@ -1440,7 +1432,7 @@ const POINT_TO_BOARD = 0.6;       // 가리키기 시작 후 칠판에 글이 �
 const POINT_TO_TALK = 1.9;        // 가리키기 시작 후 말하기 시작까지 (초, 1배속 기준)
 const DANCE_SECS = 6;             // 정답일 때 춤추는 시간 (초)
 const NUM = ['①', '②', '③', '④', '⑤'];
-const synth = window.speechSynthesis || null;
+const synth = null;               // 음성(TTS) 기능은 사용하지 않음 — 자막으로만 진행
 
 const lec = {
   i: -1, seq: [], phase: 'ready', timer: 0,
@@ -1454,13 +1446,12 @@ const lecText = document.getElementById('lecText'), lecStep = document.getElemen
 const lecPrev = document.getElementById('lecPrev'), lecNext = document.getElementById('lecNext');
 const lecWrap = document.getElementById('lecture'), lecQuiz = document.getElementById('lecQuiz');
 const speedBtns = [...document.querySelectorAll('#lecture .lec-speed button')];
-const voiceBtn = document.getElementById('voiceBtn'), voiceLabel = document.getElementById('voiceLabel');
 
 // 강의 단계 + 퀴즈 + 결과를 하나의 순서로 만듦
 function buildSeq() {
   const seq = LECTURE.steps.map(st => ({ kind: 'step', st }));
   const qs = LECTURE.quiz || [];
-  qs.forEach((q, qi) => seq.push({ kind: 'quiz', q, qi, board: { title: `퀴즈 ${qi + 1} / ${qs.length}`, quiz: { question: q.question, choices: q.choices, answer: q.answer, chosen: null, diagram: q.diagram || null } } }));
+  qs.forEach((q, qi) => seq.push({ kind: 'quiz', q, qi, board: { title: `퀴즈 ${qi + 1} / ${qs.length}`, quiz: { question: q.question, choices: q.choices, answer: q.answer, chosen: null, wrong: [], solved: false, diagram: q.diagram || null } } }));
   if (qs.length) seq.push({ kind: 'result', board: null });
   return seq;
 }
@@ -1488,17 +1479,24 @@ function renderQuizButtons() {
   const it = lec.i >= 0 ? lec.seq[lec.i] : null;
   if (!it || it.kind !== 'quiz') { lecQuiz.hidden = true; lecQuiz.innerHTML = ''; return; }
   const qz = it.board.quiz;
+  const waiting = qz.chosen !== null && !qz.solved;          // 방금 틀려서 '다시 풀기'를 기다리는 중
   lecQuiz.hidden = false; lecQuiz.innerHTML = '';
   qz.choices.forEach((c, k) => {
     const b = document.createElement('button');
     b.type = 'button'; b.textContent = `${NUM[k]} ${c}`;
-    if (qz.chosen !== null) {
-      b.disabled = true;
-      if (k === qz.answer) b.className = 'ok'; else if (k === qz.chosen) b.className = 'bad';
-    }
+    if (qz.solved && k === qz.answer) b.className = 'ok';
+    else if (qz.wrong.includes(k)) b.className = 'bad';
+    b.disabled = qz.solved || waiting || qz.wrong.includes(k);
     b.addEventListener('click', () => answerQuiz(k));
     lecQuiz.appendChild(b);
   });
+  if (waiting) {
+    const r = document.createElement('button');
+    r.type = 'button'; r.className = 'retry'; r.id = 'quizRetry';
+    r.textContent = '↺ 다시 풀기';
+    r.addEventListener('click', retryQuiz);
+    lecQuiz.appendChild(r);
+  }
 }
 
 function stopDance() { lec.danceT = 0; }
@@ -1515,7 +1513,7 @@ function startLecture() {
   screenAnim.target = 0;                    // 화이트보드가 보이게 스크린을 말아 올림
   lecWrap.classList.add('on');
   lec.answers = [];
-  lec.seq.forEach(it => { if (it.kind === 'quiz') it.board.quiz.chosen = null; });
+  lec.seq.forEach(it => { if (it.kind === 'quiz') Object.assign(it.board.quiz, { chosen: null, wrong: [], solved: false }); });
 }
 function endLecture() {
   stopSpeech(); stopDance();
@@ -1530,21 +1528,22 @@ function endLecture() {
 }
 
 function resultBoardAndSay() {
-  const qs = LECTURE.quiz || [], n = qs.length;
-  const score = qs.reduce((s, q, k) => s + (lec.answers[k] === true ? 1 : 0), 0);
+  const qzs = lec.seq.filter(it => it.kind === 'quiz').map(it => it.board.quiz), n = qzs.length;
+  const solved = qzs.filter(q => q.solved).length, first = qzs.filter(q => q.solved && !q.wrong.length).length;
   const board = {
     title: '퀴즈 결과',
     points: [
-      { text: `맞힌 문제 :   ${score} / ${n}`, color: score === n ? 'green' : 'blue', box: true },
-      ...qs.map((q, k) => `${k + 1}번   ${lec.answers[k] === true ? 'O  정답' : lec.answers[k] === false ? 'X  오답' : '–  안 풂'}`),
+      { text: `맞힌 문제 :   ${solved} / ${n}   (한 번에 맞힘 ${first})`, color: solved === n ? 'green' : 'blue', box: true },
+      ...qzs.map((q, k) => `${k + 1}번   ` + (q.solved ? (q.wrong.length ? `O  정답  (다시 풀기 ${q.wrong.length}번)` : 'O  한 번에 정답') : q.wrong.length ? 'X  못 맞힘' : '–  안 풂')),
     ],
     diagram: null,
   };
   const tail = LECTURE.ending || '';
-  const say = score === n ? `와, ${n}문제 모두 맞혔네요! 오늘 내용을 완벽하게 이해했어요. ${tail}`
-    : score > 0 ? `${n}문제 중 ${score}문제를 맞혔어요. 틀린 문제는 해설을 한 번 더 떠올려 보세요. ${tail}`
+  const say = first === n ? `와, ${n}문제 모두 한 번에 맞혔네요! 오늘 내용을 완벽하게 이해했어요. ${tail}`
+    : solved === n ? `다시 풀기까지 해서 ${n}문제를 모두 맞혔어요. 틀렸던 문제의 해설을 한 번 더 떠올려 보세요. ${tail}`
+    : solved > 0 ? `${n}문제 중 ${solved}문제를 맞혔어요. 못 맞힌 문제는 다시 한번 복습해 봅시다. ${tail}`
     : `이번에는 아쉬웠지만 괜찮아요. 오늘 배운 내용을 한 번 더 복습해 봅시다. ${tail}`;
-  return { board, say, perfect: score === n };
+  return { board, say, perfect: solved === n };
 }
 
 function goStep(i) {
@@ -1560,8 +1559,10 @@ function goStep(i) {
   if (it.kind === 'step') text = it.st.say || '';
   else if (it.kind === 'quiz') {
     const qz = it.board.quiz;
-    text = qz.chosen === null ? (it.q.say || `퀴즈 ${it.qi + 1}번입니다. ${it.q.question} 보기에서 답을 골라 주세요.`)
-      : `이미 푼 문제예요. 정답은 ${NUM[qz.answer]}번, ${qz.choices[qz.answer]}입니다.`;
+    text = qz.solved ? `이미 맞힌 문제예요. 정답은 ${NUM[qz.answer]}번, ${qz.choices[qz.answer]}입니다.`
+      : qz.chosen !== null ? '아까 틀렸던 문제예요. 아래 ‘다시 풀기’를 눌러 다시 골라 보세요.'
+      : qz.wrong.length ? '다시 한번 골라 보세요.'
+      : (it.q.say || `퀴즈 ${it.qi + 1}번입니다. ${it.q.question} 보기에서 답을 골라 주세요.`);
   } else {
     const r = resultBoardAndSay(); it.board = r.board; text = r.say;
     if (r.perfect) { anim = null; lec.pendingDance = true; }
@@ -1615,82 +1616,37 @@ function updateLecture(dt) {
 /* ----- 퀴즈 ----- */
 function answerQuiz(k) {
   const it = lec.i >= 0 ? lec.seq[lec.i] : null;
-  if (!it || it.kind !== 'quiz' || it.board.quiz.chosen !== null) return;
-  if (lec.phase === 'point') { lec.boardShown = true; boardState.reveal = 1; boardState.revealing = false; }
+  if (!it || it.kind !== 'quiz') return;
   const q = it.q, qz = it.board.quiz;
-  qz.chosen = k; lec.answers[it.qi] = k === q.answer;
-  showOnBoard(it.board, false);
-  renderQuizButtons();
+  if (qz.solved || qz.chosen !== null || qz.wrong.includes(k)) return;
+  if (lec.phase === 'point') { lec.boardShown = true; boardState.reveal = 1; boardState.revealing = false; }
+  qz.chosen = k;
   stopDance();
   if (k === q.answer) {
-    const praise = q.praise || ['정답입니다! 아주 잘했어요.', '맞았어요! 정확하게 이해했네요.', '정답! 훌륭합니다.'][it.qi % 3];
+    qz.solved = true;
+    showOnBoard(it.board, false); renderQuizButtons();
+    const praise = q.praise || (qz.wrong.length ? '맞았어요! 다시 풀어서 정답을 찾았네요.' : ['정답입니다! 아주 잘했어요.', '맞았어요! 정확하게 이해했네요.', '정답! 훌륭합니다.'][it.qi % 3]);
     lec.pendingDance = true;
     say(praise, null);
   } else {
-    say(`아쉽네요. 정답은 ${NUM[q.answer]}번, ${q.choices[q.answer]}입니다. ${q.explain || ''}`, 'Talking');
+    qz.wrong.push(k);
+    showOnBoard(it.board, false); renderQuizButtons();
+    say(`아쉽네요, ${NUM[k]}번은 정답이 아니에요. ${q.explain || ''} 해설을 듣고 아래 ‘다시 풀기’를 눌러 다시 골라 보세요.`, 'Talking');
   }
 }
-
-/* ----- 음성 (Web Speech API, 한국어 남성 목소리 우선) ----- */
-const MALE_HINT = /injoon|in-joon|hyunsu|bongjin|gookmin|minsu|jinho|male|남성|남자/i;
-const FEMALE_HINT = /heami|sunhi|sun-hi|jimin|seohyeon|soonbok|yujin|yuna|female|여성|여자|google/i;
-let koVoice = null, koVoiceMale = false;
-function pickVoice() {
-  if (!synth) return;
-  const vs = synth.getVoices().filter(v => /^ko/i.test(v.lang) || /korean|한국/i.test(v.name));
-  const male = vs.find(v => MALE_HINT.test(v.name) && !FEMALE_HINT.test(v.name));
-  koVoice = male || vs.find(v => !FEMALE_HINT.test(v.name)) || vs[0] || null;
-  koVoiceMale = !!male;
-  const name = koVoice ? koVoice.name : '기본 목소리';
-  voiceBtn.title = `목소리: ${name}${koVoiceMale ? '' : ' (남성 목소리가 없어 낮은 톤으로 재생)'}`;
-  if (vs.length) console.log('[voice] 한국어 목소리:', vs.map(v => v.name), '→ 사용:', name, koVoiceMale ? '(남성)' : '(남성 없음, 톤 낮춤)');
-}
-if (synth) { pickVoice(); synth.onvoiceschanged = pickVoice; }
-
-function speechText(s) { return s.replace(/R B/g, '알 비').replace(/R A/g, '알 에이').replace(/\bw L\b/g, '더블유 엘').replace(/[①②③④⑤]/g, m => ({ '①': '1', '②': '2', '③': '3', '④': '4', '⑤': '5' })[m]); }
-// 긴 문장은 브라우저에서 끊기는 경우가 있어 문장 단위로 나눠서 읽음
-function speakFrom(fromIdx) {
-  const token = ++lec.token;
-  const text = lec.text;
-  const parts = [], starts = [];
-  const re = /[^.!?]+[.!?]*\s*/g; let m;
-  while ((m = re.exec(text))) { if (m.index + m[0].length <= fromIdx) continue; starts.push(Math.max(m.index, fromIdx)); parts.push(text.slice(Math.max(m.index, fromIdx), m.index + m[0].length)); }
-  lec.starts = starts;
-  if (!parts.length) { lec.ttsDone = true; lec.cap = Infinity; return; }
-  lec.ttsDone = false; lec.cap = Math.max(lec.shown, fromIdx);
-  synth.cancel();
-  parts.forEach((p, k) => {
-    const u = new SpeechSynthesisUtterance(speechText(p));
-    u.lang = 'ko-KR'; if (koVoice) u.voice = koVoice;
-    u.rate = Math.min(2, 0.95*lec.speed);
-    u.pitch = koVoiceMale ? 1 : 0.7;
-    const end = starts[k] + p.length;
-    u.onstart = () => { if (token === lec.token) lec.cap = end; };
-    u.onend = u.onerror = () => { if (token !== lec.token) return; lec.cap = Math.max(lec.cap, end); if (k === parts.length - 1) { lec.ttsDone = true; lec.cap = Infinity; } };
-    synth.speak(u);
-  });
-  const secs = (text.length - fromIdx)/(5*Math.min(2, lec.speed)) + 6;   // 안전장치
-  setTimeout(() => { if (token === lec.token && !lec.ttsDone) { lec.ttsDone = true; lec.cap = Infinity; } }, secs*1000);
-}
-function stopSpeech() { lec.token++; if (synth) synth.cancel(); lec.ttsDone = true; lec.cap = Infinity; }
-function sentenceStartAt(pos) { const re = /[^.!?]+[.!?]*\s*/g; let m, st = 0; while ((m = re.exec(lec.text))) { if (m.index <= pos) st = m.index; else break; } return st; }
-function restartVoiceIfTalking() {
-  if (lec.phase !== 'talk' || !lec.voiceOn || !synth) return;
-  if (lec.shown >= lec.text.length && lec.ttsDone) return;
-  speakFrom(sentenceStartAt(Math.max(0, lec.shown)));
+function retryQuiz() {
+  const it = lec.i >= 0 ? lec.seq[lec.i] : null;
+  if (!it || it.kind !== 'quiz' || it.board.quiz.solved) return;
+  it.board.quiz.chosen = null;
+  showOnBoard(it.board, false); renderQuizButtons();
+  say('좋아요, 다시 한번 골라 보세요.', 'Talking');
+  const first = lecQuiz.querySelector('button:not(:disabled)'); if (first) first.focus();
 }
 
-function setVoice(on) {
-  lec.voiceOn = on && !!synth;
-  voiceBtn.setAttribute('aria-pressed', lec.voiceOn);
-  voiceLabel.textContent = lec.voiceOn ? '음성 켜짐' : '음성 꺼짐';
-  voiceBtn.classList.toggle('off', !lec.voiceOn);
-  if (!lec.voiceOn) { lec.token++; if (synth) synth.cancel(); lec.ttsDone = true; lec.cap = Infinity; }
-  else restartVoiceIfTalking();
-}
-voiceBtn.addEventListener('click', () => setVoice(!lec.voiceOn));
-if (!synth) { voiceBtn.disabled = true; voiceLabel.textContent = '음성 미지원'; }
-setVoice(lec.voiceOn);
+/* ----- 음성 기능 없음 (자막만) ----- */
+function speakFrom() { lec.ttsDone = true; lec.cap = Infinity; }
+function stopSpeech() { lec.token++; lec.ttsDone = true; lec.cap = Infinity; }
+function restartVoiceIfTalking() {}
 
 /* ----- 배속 ----- */
 function setSpeed(s) {
@@ -1709,6 +1665,7 @@ window.addEventListener('keydown', e => {
   if (k === 'pagedown' || k === 'enter' || k === 'n') { e.preventDefault(); goStep(lec.i + 1); }
   else if (k === 'pageup' || k === 'p') { e.preventDefault(); if (lec.i > 0) goStep(lec.i - 1); }
   else if (['1', '2', '3', '4'].includes(k)) answerQuiz(+k - 1);
+  else if (k === 'r') { const it = lec.i >= 0 ? lec.seq[lec.i] : null; if (it && it.kind === 'quiz') { e.stopImmediatePropagation(); retryQuiz(); } }
 });
 
 // 칠판의 보기를 직접 눌러도 답할 수 있음 (보드 좌표 → 보기 영역)
@@ -1744,7 +1701,7 @@ window.addEventListener('keydown', e => {          // 시작 화면이 떠 있�
 }, true);
 if (new URLSearchParams(location.search).has('step')) { startEl.hidden = true; }   // 테스트용 바로 진입
 document.getElementById('stStart').focus();
-{ const q = new URLSearchParams(location.search); if (q.has('step')) { goStep(+q.get('step')); if (q.has('pick')) answerQuiz(+q.get('pick')); for (let k = 0; k < (+q.get('sim') || 0); k++) { updateLecture(0.05); updateBoard(0.05); updateScreen(0.05); } } }
+{ const q = new URLSearchParams(location.search); if (q.has('step')) { goStep(+q.get('step')); if (q.has('pick')) answerQuiz(+q.get('pick')); if (q.has('retry')) { retryQuiz(); if (q.has('pick2')) answerQuiz(+q.get('pick2')); } for (let k = 0; k < (+q.get('sim') || 0); k++) { updateLecture(0.05); updateBoard(0.05); updateScreen(0.05); } } }
 
 // 스크린 말아 올리기 / 내리기
 function updateScreen(dt) {
