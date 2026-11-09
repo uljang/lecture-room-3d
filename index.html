@@ -75,6 +75,8 @@ window.normalizeLecture = function (o) {
 <!-- 기본 강의 파일 (새 강의 파일을 만들면 여기에 한 줄 추가) -->
 <script src="lectures/indeterminate-intro.js"></script>
 <script src="lectures/consistent-deformation.js"></script>
+<!-- 질문 답변용 용어집 -->
+<script src="lectures/common-faq.js"></script>
 <script>
 // 기본 강의 + 이 브라우저에서 추가한 강의를 합치고, 처음 보여 줄 강의를 고름
 (function () {
@@ -101,6 +103,48 @@ window.normalizeLecture = function (o) {
     --bad:#c0392b;
   }
   [hidden]{display:none !important}
+  /* 노트 */
+  #notebook{position:fixed;z-index:20;left:calc(16px + env(safe-area-inset-left,0px));top:calc(16px + env(safe-area-inset-top,0px));width:min(400px,calc(100vw - 32px));max-height:calc(100% - 250px);box-sizing:border-box;padding:10px 12px;display:flex;flex-direction:column;gap:8px;color:var(--hud-fg);font-size:12px}
+  #notebook button{background:rgba(255,255,255,.1);color:var(--hud-fg);border:0;border-radius:6px;padding:5px 8px;font:inherit;cursor:pointer}
+  #notebook button:hover{background:rgba(255,255,255,.2)}
+  #notebook button[aria-pressed="true"]{background:var(--accent)}
+  #notebook .note-head{display:flex;align-items:center;gap:8px}
+  #notebook .note-head b{font-size:14px}
+  #notebook .note-pages{display:flex;align-items:center;gap:4px;margin-left:auto;font-variant-numeric:tabular-nums}
+  #notebook .note-tools,#notebook .note-foot{display:flex;flex-wrap:wrap;gap:4px}
+  #notebook .note-tools i{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:4px;vertical-align:-1px;border:1px solid rgba(255,255,255,.5)}
+  #notebook .note-paper{position:relative;width:min(100%,calc((100vh - 400px)*.75));aspect-ratio:3/4;margin:0 auto;border-radius:4px;overflow:hidden;box-shadow:0 2px 10px rgba(0,0,0,.35);flex:none}
+  #notebook canvas{position:absolute;inset:0;width:100%;height:100%}
+  #noteInk{touch-action:none;cursor:crosshair}
+  #noteInk[data-tool="erase"]{cursor:cell}
+  #notebook .note-msg{margin:0;min-height:1.2em;color:#9be3b5}
+  /* 질문 */
+  #ask{position:fixed;z-index:20;right:calc(16px + env(safe-area-inset-right,0px));top:calc(262px + env(safe-area-inset-top,0px));width:min(380px,calc(100vw - 32px));max-height:calc(100% - 262px - 245px);min-height:230px;box-sizing:border-box;padding:12px 14px;display:flex;flex-direction:column;gap:8px;color:var(--hud-fg);font-size:13px}
+  #ask button{background:rgba(255,255,255,.1);color:var(--hud-fg);border:0;border-radius:7px;padding:6px 10px;font:inherit;cursor:pointer}
+  #ask button:hover:not(:disabled){background:rgba(255,255,255,.2)}
+  #ask button:disabled{opacity:.4;cursor:default}
+  #ask .ask-head{display:flex;align-items:center;gap:8px}
+  #ask .ask-head b{font-size:14px}
+  #ask .ask-tools{margin-left:auto;display:flex;gap:4px}
+  #ask .ask-mode{margin:0;font-size:12px;color:var(--hud-sub)}
+  #ask .ask-mode.ai{color:#ffd166}
+  #ask .ask-settings{display:grid;gap:6px;background:rgba(255,255,255,.06);border-radius:8px;padding:8px}
+  #ask .ask-keyrow{display:flex;gap:4px}
+  #ask input,#ask textarea{flex:1;min-width:0;background:rgba(0,0,0,.3);color:var(--hud-fg);border:1px solid rgba(255,255,255,.2);border-radius:7px;padding:7px 9px;font:inherit;resize:none}
+  #ask .ask-warn,#ask .ask-keymsg{margin:0;font-size:11px;line-height:1.5;color:var(--hud-sub)}
+  #ask .ask-log{flex:1;min-height:60px;overflow:auto;display:flex;flex-direction:column;gap:8px}
+  #ask .ask-msg{display:grid;gap:2px;max-width:92%}
+  #ask .ask-msg b{font-size:11px;color:var(--hud-sub)}
+  #ask .ask-msg p{margin:0;padding:7px 10px;border-radius:10px;line-height:1.55;background:rgba(255,255,255,.1);white-space:pre-wrap}
+  #ask .ask-msg.me{align-self:flex-end}
+  #ask .ask-msg.me p{background:var(--accent)}
+  #ask .ask-chips{display:flex;flex-wrap:wrap;gap:4px}
+  #ask .ask-chips button{font-size:12px;padding:4px 9px;border-radius:999px;border:1px solid rgba(255,255,255,.2);background:transparent}
+  #ask .ask-input{display:flex;gap:6px;align-items:stretch}
+  #ask #askSend{background:var(--accent);font-weight:700}
+  #ask .ask-back{align-self:flex-start;font-size:12px}
+  #lecture .lec-nav .lec-ask{margin-right:auto;background:rgba(255,209,102,.18);color:#ffe3a3}
+  #lecture .lec-nav .lec-ask[aria-pressed="true"]{background:#ffd166;color:#1a1d22}
   html,body{margin:0;height:100%;overflow:hidden;background:#1a1d22;font-family:'Noto Sans KR',system-ui,sans-serif}
   canvas{display:block;cursor:grab;touch-action:none}
   canvas.drag{cursor:grabbing}
@@ -246,6 +290,53 @@ window.normalizeLecture = function (o) {
   </div>
   <label><input type="checkbox" id="tAuto" checked> 자동 강의</label>
 </div>
+<section id="notebook" class="panel" hidden aria-label="필기 노트">
+  <div class="note-head">
+    <b>내 노트</b>
+    <span class="note-pages">
+      <button type="button" id="notePrev" aria-label="이전 쪽">◀</button>
+      <span id="notePage">1 / 1</span>
+      <button type="button" id="noteNext" aria-label="다음 쪽">▶</button>
+      <button type="button" id="noteAdd">+ 새 쪽</button>
+    </span>
+    <button type="button" id="noteClose">닫기</button>
+  </div>
+  <div class="note-tools" role="toolbar" aria-label="필기 도구">
+    <button type="button" data-tool="black"><i style="background:#1f2328"></i>검정</button>
+    <button type="button" data-tool="blue"><i style="background:#1d4fb8"></i>파랑</button>
+    <button type="button" data-tool="red"><i style="background:#c62828"></i>빨강</button>
+    <button type="button" data-tool="mark"><i style="background:#ffd640"></i>형광펜</button>
+    <button type="button" data-tool="erase">지우개</button>
+    <button type="button" id="noteUndo">되돌리기</button>
+  </div>
+  <div class="note-paper"><canvas id="noteBg" width="840" height="1120"></canvas><canvas id="noteInk" width="840" height="1120"></canvas></div>
+  <div class="note-foot">
+    <button type="button" id="noteCopy">칠판 받아 적기</button>
+    <button type="button" id="noteSave">이미지로 저장</button>
+    <button type="button" id="noteClear">쪽 지우기</button>
+  </div>
+  <p id="noteMsg" class="note-msg" role="status"></p>
+</section>
+<section id="ask" class="panel" hidden aria-label="교수님께 질문">
+  <div class="ask-head">
+    <b>교수님께 질문</b>
+    <span class="ask-tools"><button type="button" id="askSetBtn">AI 설정</button><button type="button" id="askClose">닫기</button></span>
+  </div>
+  <p id="askMode" class="ask-mode"></p>
+  <div id="askSettings" class="ask-settings" hidden>
+    <label for="askKey">Claude API 키 (선택)</label>
+    <div class="ask-keyrow"><input id="askKey" type="password" autocomplete="off" spellcheck="false" placeholder="sk-ant-..."><button type="button" id="askKeySave">저장</button><button type="button" id="askKeyDel">지우기</button></div>
+    <p class="ask-warn">키를 넣으면 AI 교수님(Claude Opus 5.5)이 자유롭게 답해요. 키는 이 브라우저에만 저장되고 질문할 때 Anthropic API로 바로 보내져요. 요금은 키 주인 계정에 청구되니 공용 PC에서는 쓰지 마세요.</p>
+    <p id="askKeyMsg" class="ask-keymsg" role="status"></p>
+  </div>
+  <div id="askLog" class="ask-log" aria-live="polite"></div>
+  <div id="askChips" class="ask-chips"></div>
+  <div class="ask-input">
+    <textarea id="askInput" rows="2" placeholder="모르는 것을 물어보세요 (Enter 보내기)"></textarea>
+    <button type="button" id="askSend">보내기</button>
+  </div>
+  <button type="button" id="askBack" class="ask-back">↺ 지금 단계 다시 듣기</button>
+</section>
 <div id="lecture" class="panel" role="region" aria-label="강의 자막">
   <div class="lec-top">
     <span class="lec-who">교수님</span>
@@ -261,12 +352,14 @@ window.normalizeLecture = function (o) {
   <p class="lec-text" id="lecText" aria-live="polite"></p>
   <div class="lec-quiz" id="lecQuiz" hidden></div>
   <div class="lec-nav">
+    <button id="askBtn" type="button" class="lec-ask" aria-pressed="false">✋ 질문하기</button>
     <button id="lecPrev">◀ 이전</button>
     <button id="lecNext" class="primary">강의 시작 ▶</button>
   </div>
 </div>
 <div id="views" class="panel">
   <button id="toList" type="button">강의 목록</button>
+  <button id="noteBtn" type="button" aria-pressed="false">노트</button>
   <button data-yaw="90">◀ 창가</button>
   <button data-yaw="0" class="on">칠판</button>
   <button data-yaw="-90">복도 ▶</button>
@@ -300,6 +393,10 @@ renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 document.body.appendChild(renderer.domElement);
 const canvas = renderer.domElement;
+window.addEventListener('keydown', e => {          // 글자 입력 중에는 강의실 단축키를 막음 (가장 먼저 등록)
+  const t = e.target;
+  if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) e.stopImmediatePropagation();
+});
 
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0xdfe4ea);
@@ -1038,7 +1135,11 @@ for (let r = 0; r < ROWS; r++) {
   const book = box(0.21, 0.025, 0.28, std(0x2b4f86, { roughness: .7 }), myX - 0.12, 0.75, myZ + 0.04); book.rotation.y = 0.12; room.add(book);
   const pages = box(0.2, 0.018, 0.27, std(0xf6f3ea), myX - 0.12, 0.753, myZ + 0.04); pages.rotation.y = 0.12; pages.position.y = 0.752; room.add(pages);
   const nb = box(0.18, 0.012, 0.25, std(0xf8f8f4, { roughness: .9 }), myX + 0.16, 0.744, myZ + 0.06); nb.rotation.y = -0.08; room.add(nb);
-  const pen = mesh(new THREE.CylinderGeometry(0.005, 0.005, 0.14, 8), std(0x1d4fb8), myX + 0.16, 0.755, myZ + 0.03); pen.rotation.z = Math.PI/2; pen.rotation.y = 0.5; room.add(pen);
+  // 노트 윗면: 필기 내용이 그대로 보임 (클릭하면 노트가 열림)
+  const nbTop = new THREE.Mesh(new THREE.PlaneGeometry(0.17, 0.235), std(0xfbfaf5)); nbTop.receiveShadow = true;
+  nbTop.rotation.x = -Math.PI/2; nbTop.position.y = 0.0065; nb.add(nbTop);
+  window.__notebook3d = nbTop; clickTargets.notebook = [nb, nbTop];
+  const pen = mesh(new THREE.CylinderGeometry(0.005, 0.005, 0.14, 8), std(0x1d4fb8), myX + 0.3, 0.755, myZ + 0.05); pen.rotation.z = Math.PI/2; pen.rotation.y = 1.45; room.add(pen);
   window.__mySeat = { x: myX, z: myZ + 0.55 };
 }
 
@@ -1066,7 +1167,7 @@ if (document.fonts && document.fonts.load) {
 const SIT_Y = 1.17, STAND_Y = 1.62;
 const view = { yaw: 0, pitch: -0.07, tyaw: 0, tpitch: -0.07, fov: 65, tfov: 65, y: SIT_Y, ty: SIT_Y };
 camera.position.set(window.__mySeat.x, view.y, window.__mySeat.z);
-{ const q = new URLSearchParams(location.search); if (q.has('yaw')) view.yaw = view.tyaw = (+q.get('yaw') || 0)*Math.PI/180; if (q.has('cam')) { const [cx, cy, cz] = q.get('cam').split(',').map(Number); camera.position.set(cx, cy, cz); view.y = view.ty = cy; } }
+{ const q = new URLSearchParams(location.search); if (q.has('yaw')) view.yaw = view.tyaw = (+q.get('yaw') || 0)*Math.PI/180; if (q.has('pitch')) view.pitch = view.tpitch = +q.get('pitch')*Math.PI/180; if (q.has('cam')) { const [cx, cy, cz] = q.get('cam').split(',').map(Number); camera.position.set(cx, cy, cz); view.y = view.ty = cy; } }
 
 const PITCH_MIN = -1.25, PITCH_MAX = 1.2;
 const clampPitch = () => { view.tpitch = Math.max(PITCH_MIN, Math.min(PITCH_MAX, view.tpitch)); };
@@ -1278,6 +1379,14 @@ function buildTeacher(gltf) {
     console.log(`[teacher] 춤 ${key} → GLB 클립 "${c.name}" 사용`);
   });
   if (!teacher.dances.length) console.log('[teacher] 춤 클립 없음 → 정답일 때 손 흔들기로 대신');
+  // 질문을 듣고 생각할 때: 이름에 'think' 또는 'hand_on_hip' 이 들어간 클립
+  const think = clips.find(c => /think/i.test(c.name)) || clips.find(c => /hand_on_hip/i.test(c.name));
+  if (think) {
+    const tc = think.clone();
+    tc.tracks.forEach(t => { if (/Hips\.position$/.test(t.name)) for (let k = 0; k < t.values.length; k += 3) { t.values[k] = t.values[0]; t.values[k + 2] = t.values[2]; } });
+    teacher.actions.Thinking = mixer.clipAction(tc); ANIM_LABEL.Thinking = '질문을 듣고 생각하는 중';
+    console.log(`[teacher] Thinking → GLB 클립 "${think.name}" 사용`);
+  }
   mixer.addEventListener('finished', e => { if (e.action === teacher.current) { if (teacher.auto) nextAuto(); else playAnim('Idle'); } });
   Object.assign(teacher, { model: holder, mixer });
 
@@ -1333,6 +1442,8 @@ function onSceneClick(e) {
   const r = canvas.getBoundingClientRect();
   raycaster.setFromCamera({ x: (e.clientX - r.left) / r.width * 2 - 1, y: -(e.clientY - r.top) / r.height * 2 + 1 }, camera);
   const bHit = raycaster.intersectObjects([clickTargets.board, clickTargets.screen], false)[0];
+  const nHit = raycaster.intersectObjects(clickTargets.notebook || [], false)[0];
+  if (nHit && (!bHit || nHit.distance < bHit.distance)) { openNotebook(); return; }
   if (bHit && bHit.object === clickTargets.board) { const k = quizChoiceAt(bHit.uv); if (k >= 0) { answerQuiz(k); return; } }
   if (!teacher.mixer || (typeof lec !== 'undefined' && lec.i >= 0)) return;   // 강의 중에는 강의 흐름 유지
   const tHit = raycaster.intersectObject(teacher.model, true)[0];
@@ -1548,7 +1659,7 @@ function updateLecture(dt) {
     lec.chars = Math.min(lec.text.length, lec.chars + dt*BASE_CPS*lec.speed*fast);
     const c = Math.min(Math.floor(lec.chars), lec.cap, lec.text.length);
     if (c !== lec.shown) { lec.shown = c; setSubtitle(lec.text.slice(0, c)); }
-    if (c >= lec.text.length && lec.ttsDone) {
+    if (c >= lec.text.length && lec.ttsDone && !lec.streaming) {
       lec.hold += dt;
       if (lec.hold > 0.3) {
         lec.phase = 'done';
@@ -1745,6 +1856,338 @@ function updateScreen(dt) {
   slideTex.repeat.y = c; slideTex.offset.y = 0;
   s.bar.position.y = s.sTop - s.sh*c - 0.015;
 }
+
+/* ---------- 노트 필기 (책상 위 노트) ---------- */
+const NOTE_W = 840, NOTE_H = 1120;                 // 노트 한 쪽 (3:4)
+const NOTE_COLORS = { black: '#1f2328', blue: '#1d4fb8', red: '#c62828' };
+const noteEl = document.getElementById('notebook');
+const noteBg = document.getElementById('noteBg'), noteInk = document.getElementById('noteInk');
+const noteBgCtx = noteBg.getContext('2d'), noteInkCtx = noteInk.getContext('2d');
+const notePageLabel = document.getElementById('notePage'), noteMsg = document.getElementById('noteMsg');
+const noteToolBtns = [...document.querySelectorAll('#notebook [data-tool]')];
+const notes = { key: '', pages: [{ items: [] }], page: 0, tool: 'black', drawing: null, saveTimer: 0, texTimer: 0 };
+
+// 3D 노트에 보일 텍스처 (필기 내용이 책상 위 노트에도 나타남)
+const noteTexCanvas = document.createElement('canvas'); noteTexCanvas.width = 420; noteTexCanvas.height = 560;
+const noteTex = new THREE.CanvasTexture(noteTexCanvas); noteTex.encoding = THREE.sRGBEncoding; noteTex.anisotropy = maxAniso;
+if (window.__notebook3d) window.__notebook3d.material = new THREE.MeshStandardMaterial({ map: noteTex, roughness: 0.9 });
+
+function drawPaper(g, w, h) {
+  g.fillStyle = '#fbfaf5'; g.fillRect(0, 0, w, h);
+  const s = w/NOTE_W;
+  g.strokeStyle = 'rgba(80,120,190,.28)'; g.lineWidth = 2*s;
+  for (let y = 150*s; y < h - 20*s; y += 56*s) { g.beginPath(); g.moveTo(0, y); g.lineTo(w, y); g.stroke(); }
+  g.strokeStyle = 'rgba(210,80,80,.35)'; g.beginPath(); g.moveTo(90*s, 0); g.lineTo(90*s, h); g.stroke();
+  g.fillStyle = 'rgba(40,50,70,.45)'; g.font = `${26*s}px ${SANS}`;
+  g.fillText((LECTURE && LECTURE.title) || '', 110*s, 60*s);
+  g.textAlign = 'right'; g.fillText(`${notes.page + 1}쪽`, w - 30*s, 60*s); g.textAlign = 'left';
+}
+function strokePath(g, it, s) {
+  const p = it.p; if (!p.length) return;
+  g.save();
+  g.lineCap = 'round'; g.lineJoin = 'round';
+  if (it.t === 'erase') { g.globalCompositeOperation = 'destination-out'; g.strokeStyle = '#000'; }
+  else if (it.t === 'mark') { g.globalCompositeOperation = 'multiply'; g.strokeStyle = 'rgba(255,214,64,.55)'; g.lineCap = 'butt'; }
+  else g.strokeStyle = NOTE_COLORS[it.c] || NOTE_COLORS.black;
+  g.lineWidth = it.w*s;
+  if (p.length < 4) { g.beginPath(); g.arc(p[0]*s, p[1]*s, it.w*s/2, 0, Math.PI*2); g.fillStyle = g.strokeStyle; if (it.t !== 'mark') g.fill(); g.restore(); return; }
+  g.beginPath(); g.moveTo(p[0]*s, p[1]*s);
+  for (let i = 2; i < p.length - 2; i += 2) { const mx = (p[i] + p[i + 2])/2, my = (p[i + 1] + p[i + 3])/2; g.quadraticCurveTo(p[i]*s, p[i + 1]*s, mx*s, my*s); }
+  g.lineTo(p[p.length - 2]*s, p[p.length - 1]*s);
+  g.stroke(); g.restore();
+}
+function drawItem(g, it, s) {
+  if (it.t === 'text') {
+    g.fillStyle = NOTE_COLORS[it.c] || NOTE_COLORS.blue; g.font = `${it.size*s}px ${HAND}`;
+    it.lines.forEach((l, k) => g.fillText(l, it.x*s, (it.y + k*56)*s));
+  } else strokePath(g, it, s);
+}
+function renderInk(g, w, h) {
+  g.clearRect(0, 0, w, h);
+  const s = w/NOTE_W;
+  (notes.pages[notes.page] || { items: [] }).items.forEach(it => drawItem(g, it, s));
+  if (notes.drawing) drawItem(g, notes.drawing, s);
+}
+function renderNote() {
+  drawPaper(noteBgCtx, NOTE_W, NOTE_H);
+  renderInk(noteInkCtx, NOTE_W, NOTE_H);
+  notePageLabel.textContent = `${notes.page + 1} / ${notes.pages.length}`;
+  scheduleNoteTex(0);
+}
+function updateNoteTex() {
+  const g = noteTexCanvas.getContext('2d'), w = noteTexCanvas.width, h = noteTexCanvas.height;
+  drawPaper(g, w, h); g.drawImage(noteInk, 0, 0, w, h); noteTex.needsUpdate = true;
+}
+function scheduleNoteTex(delay = 120) { clearTimeout(notes.texTimer); notes.texTimer = setTimeout(updateNoteTex, delay); }
+
+function notesKey() { return 'musk-notes-v1:' + (LECTURE.id || LECTURE.title); }
+function loadNotes() {
+  notes.key = notesKey();
+  let data = null; try { data = JSON.parse(localStorage.getItem(notes.key) || 'null'); } catch (e) { data = null; }
+  notes.pages = data && Array.isArray(data.pages) && data.pages.length ? data.pages : [{ items: [] }];
+  notes.page = Math.min(data && data.page || 0, notes.pages.length - 1);
+  renderNote();
+}
+function saveNotes() {
+  clearTimeout(notes.saveTimer);
+  notes.saveTimer = setTimeout(() => {
+    try { localStorage.setItem(notes.key, JSON.stringify({ pages: notes.pages, page: notes.page })); noteMsg.textContent = ''; }
+    catch (e) { noteMsg.textContent = '저장 공간이 부족해서 필기를 저장하지 못했어요. 이미지로 저장해 두세요.'; }
+  }, 400);
+}
+
+function notePoint(e) {
+  const r = noteInk.getBoundingClientRect();
+  return [Math.round((e.clientX - r.left)/r.width*NOTE_W), Math.round((e.clientY - r.top)/r.height*NOTE_H)];
+}
+noteInk.addEventListener('pointerdown', e => {
+  if (e.button > 0 && e.pointerType === 'mouse') return;
+  e.preventDefault(); noteInk.setPointerCapture(e.pointerId);
+  const t = notes.tool;
+  const w = t === 'erase' ? 38 : t === 'mark' ? 30 : (e.pointerType === 'pen' ? 3 + e.pressure*4 : 4.5);
+  notes.drawing = { t: t === 'erase' ? 'erase' : t === 'mark' ? 'mark' : 'pen', c: t, w: Math.round(w*10)/10, p: notePoint(e) };
+  renderInk(noteInkCtx, NOTE_W, NOTE_H);
+});
+noteInk.addEventListener('pointermove', e => {
+  if (!notes.drawing) return;
+  const evs = e.getCoalescedEvents ? e.getCoalescedEvents() : [e];
+  evs.forEach(ev => { const [x, y] = notePoint(ev); const p = notes.drawing.p; if (Math.hypot(x - p[p.length - 2], y - p[p.length - 1]) >= 2) p.push(x, y); });
+  renderInk(noteInkCtx, NOTE_W, NOTE_H);
+});
+function endNoteStroke() {
+  if (!notes.drawing) return;
+  notes.pages[notes.page].items.push(notes.drawing); notes.drawing = null;
+  renderInk(noteInkCtx, NOTE_W, NOTE_H); scheduleNoteTex(); saveNotes();
+}
+noteInk.addEventListener('pointerup', endNoteStroke);
+noteInk.addEventListener('pointercancel', endNoteStroke);
+
+function setNoteTool(t) { notes.tool = t; noteToolBtns.forEach(b => b.setAttribute('aria-pressed', b.dataset.tool === t)); noteInk.dataset.tool = t; }
+noteToolBtns.forEach(b => b.addEventListener('click', () => setNoteTool(b.dataset.tool)));
+document.getElementById('noteUndo').addEventListener('click', () => { const it = notes.pages[notes.page].items; if (it.length) { it.pop(); renderNote(); saveNotes(); } });
+const noteClearBtn = document.getElementById('noteClear');
+noteClearBtn.addEventListener('click', () => {
+  if (noteClearBtn.dataset.armed !== '1') { noteClearBtn.dataset.armed = '1'; noteClearBtn.textContent = '정말 지우기?'; setTimeout(() => { noteClearBtn.dataset.armed = ''; noteClearBtn.textContent = '쪽 지우기'; }, 2500); return; }
+  noteClearBtn.dataset.armed = ''; noteClearBtn.textContent = '쪽 지우기';
+  notes.pages[notes.page].items = []; renderNote(); saveNotes();
+});
+document.getElementById('notePrev').addEventListener('click', () => { if (notes.page > 0) { notes.page--; renderNote(); saveNotes(); } });
+document.getElementById('noteNext').addEventListener('click', () => { if (notes.page < notes.pages.length - 1) { notes.page++; renderNote(); saveNotes(); } });
+document.getElementById('noteAdd').addEventListener('click', () => { notes.pages.splice(notes.page + 1, 0, { items: [] }); notes.page++; renderNote(); saveNotes(); });
+// 칠판 내용 받아 적기: 지금 칠판의 제목과 핵심 줄을 노트 다음 빈 줄에 옮겨 적음
+document.getElementById('noteCopy').addEventListener('click', () => {
+  const b = boardState.content; if (!b) return;
+  const lines = [b.title || ''];
+  if (b.quiz) lines.push(b.quiz.question, ...b.quiz.choices.map((c, k) => `${QNUM[k]} ${c}`));
+  else (b.points || []).forEach(p => lines.push((typeof p === 'string' ? p : p.text || '').replace(/^\s+/, '  ')));
+  const page = notes.pages[notes.page];
+  const used = page.items.filter(it => it.t === 'text').reduce((y, it) => Math.max(y, it.y + it.lines.length*56), 150);
+  let y = used + 56;
+  const fits = Math.floor((NOTE_H - 30 - y)/56) + 1;
+  if (fits < 2) { notes.pages.splice(notes.page + 1, 0, { items: [] }); notes.page++; y = 150 + 56 - 8; }
+  notes.pages[notes.page].items.push({ t: 'text', c: 'blue', size: 44, x: 110, y: y - 8, lines: lines.filter(Boolean).slice(0, 16) });
+  renderNote(); saveNotes();
+  noteMsg.textContent = '칠판 내용을 받아 적었어요.';
+});
+document.getElementById('noteSave').addEventListener('click', () => {
+  const c = document.createElement('canvas'); c.width = NOTE_W; c.height = NOTE_H;
+  const g = c.getContext('2d'); drawPaper(g, NOTE_W, NOTE_H); g.drawImage(noteInk, 0, 0);
+  c.toBlob(blob => {
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+    a.download = `노트_${(LECTURE.title || '강의').replace(/[\\/:*?"<>|\s]+/g, '_')}_${notes.page + 1}쪽.png`;
+    document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+  });
+});
+function openNotebook() { noteEl.hidden = false; document.getElementById('noteBtn').setAttribute('aria-pressed', 'true'); renderNote(); }
+function closeNotebook() { noteEl.hidden = true; document.getElementById('noteBtn').setAttribute('aria-pressed', 'false'); }
+document.getElementById('noteBtn').addEventListener('click', () => noteEl.hidden ? openNotebook() : closeNotebook());
+document.getElementById('noteClose').addEventListener('click', closeNotebook);
+setNoteTool('black');
+loadNotes();
+if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => renderNote());
+
+/* ---------- 질문하기 (교수님 답변) ---------- */
+const SDK_URL = 'https://cdn.jsdelivr.net/npm/@anthropic-ai/sdk@1.3.0/+esm';
+const AI_MODEL = 'claude-opus-5-5';
+const KEY_STORE = 'musk-claude-key';
+const askEl = document.getElementById('ask'), askLog = document.getElementById('askLog'), askInput = document.getElementById('askInput');
+const askSend = document.getElementById('askSend'), askMode = document.getElementById('askMode'), askChips = document.getElementById('askChips');
+const askKey = document.getElementById('askKey'), askSettings = document.getElementById('askSettings'), askKeyMsg = document.getElementById('askKeyMsg');
+const qa = { busy: false, history: [], historyLecture: null, client: null, clientKey: '' };
+
+function getKey() { try { return localStorage.getItem(KEY_STORE) || ''; } catch (e) { return ''; } }
+function updateAskMode() {
+  const on = !!getKey();
+  askMode.textContent = on ? 'AI 교수님 (Claude)이 답해요' : '강의 내용과 용어집에서 찾아 답해요';
+  askMode.classList.toggle('ai', on);
+}
+document.getElementById('askKeySave').addEventListener('click', () => {
+  const k = askKey.value.trim();
+  if (!/^sk-ant-/.test(k)) { askKeyMsg.textContent = 'Anthropic API 키는 sk-ant- 로 시작해요.'; return; }
+  try { localStorage.setItem(KEY_STORE, k); askKeyMsg.textContent = '저장했어요. 이제 AI 교수님이 답합니다.'; }
+  catch (e) { askKeyMsg.textContent = '이 브라우저에 저장할 수 없어요.'; }
+  askKey.value = ''; qa.client = null; updateAskMode();
+});
+document.getElementById('askKeyDel').addEventListener('click', () => {
+  try { localStorage.removeItem(KEY_STORE); } catch (e) {}
+  qa.client = null; askKeyMsg.textContent = '키를 지웠어요. 강의 내용에서 찾아 답하는 방식으로 돌아갑니다.'; updateAskMode();
+});
+document.getElementById('askSetBtn').addEventListener('click', () => { askSettings.hidden = !askSettings.hidden; });
+
+function addLog(who, text) {
+  const div = document.createElement('div'); div.className = 'ask-msg ' + who;
+  const b = document.createElement('b'); b.textContent = who === 'me' ? '나' : '교수님';
+  const p = document.createElement('p'); p.textContent = text;
+  div.append(b, p); askLog.appendChild(div); askLog.scrollTop = askLog.scrollHeight;
+  askChips.hidden = true;                          // 대화가 시작되면 추천 질문은 접어서 답변 칸을 넓게
+  return p;
+}
+function renderChips() {
+  askChips.innerHTML = ''; askChips.hidden = askLog.children.length > 0;
+  const pool = [...(LECTURE.faq || []), ...(window.COMMON_FAQ || [])];
+  const text = (LECTURE.steps || []).map(s => s.say).join(' ');
+  const related = pool.filter(f => (f.k || []).some(k => text.replace(/\s/g, '').includes(k))).slice(0, 4);
+  (related.length ? related : pool.slice(0, 4)).forEach(f => {
+    const c = document.createElement('button'); c.type = 'button'; c.textContent = f.q;
+    c.addEventListener('click', () => askQuestion(f.q));
+    askChips.appendChild(c);
+  });
+}
+
+// --- 기본 답변: 강의 내용 + 용어집에서 가장 비슷한 설명 찾기 ---
+const STOP = /(이해가?\s*안\s*(돼|되|가)\S*|모르겠\S*|헷갈\S*|무슨\s*말\S*|무슨\s*뜻\S*|(이)?라는\s*게|(이)?라는\s*것|다는\s*게|뜻이|의미가|뭐예요|뭔가요|무엇인가요|무엇|뭐야|뭐에요|인가요|이에요|예요|이란|란|알려줘|알려주세요|설명해\s*주세요|설명해줘|궁금해요|궁금합니다|해주세요|어떻게|왜|좀|요|\?|\.|!|,)/g;
+function norm(s) { return String(s || '').toLowerCase().replace(/\s+/g, ''); }
+function grams(s) { const t = norm(s).replace(STOP, ''); const g = new Set(); for (let i = 0; i < t.length - 1; i++) g.add(t.slice(i, i + 2)); if (t.length === 1) g.add(t); return g; }
+function boardText(b) { if (!b) return ''; return [b.title, ...(b.points || []).map(p => typeof p === 'string' ? p : p.text)].join(' '); }
+function localAnswer(q) {
+  const qn = norm(q), qg = grams(q);
+  if (!qg.size) return '질문을 조금 더 자세히 적어 주세요.';
+  const cands = [];
+  [...(LECTURE.faq || []), ...(window.COMMON_FAQ || [])].forEach(f => cands.push({ text: f.q + ' ' + (f.k || []).join(' '), k: f.k || [], not: f.not || [], answer: f.a, w: 1.1 }));
+  LECTURE.steps.forEach((s, i) => cands.push({ text: s.say + ' ' + boardText(s.board), answer: s.say, step: i, w: 0.75 }));
+  (LECTURE.quiz || []).forEach(z => z.explain && cands.push({ text: z.question + ' ' + z.choices.join(' ') + ' ' + z.explain, answer: z.explain, w: 0.7 }));
+  let best = null, bestScore = 0;
+  cands.forEach(c => {
+    const cg = grams(c.text); let hit = 0; qg.forEach(g => { if (cg.has(g)) hit++; });
+    let score = hit/qg.size*c.w;
+    if (c.k && c.k.some(k => qn.includes(norm(k))) && !(c.not || []).some(n => qn.includes(norm(n)))) score += 0.6;
+    if (score > bestScore) { bestScore = score; best = c; }
+  });
+  if (!best || bestScore < 0.34) return '음, 그 질문은 지금 강의 자료에서 딱 맞는 설명을 찾지 못했어요. 핵심 단어를 넣어서 조금 더 구체적으로 물어봐 주세요. 질문창의 AI 설정에서 API 키를 넣으면 더 자유롭게 답할 수 있어요.';
+  if (best.step !== undefined) return `좋은 질문이에요. 강의 ${best.step + 1}단계에서 설명한 부분인데, 다시 말해 볼게요. ${best.answer}`;
+  return best.answer;
+}
+
+// --- AI 답변: Claude API (사용자가 넣은 키로 브라우저에서 직접 호출) ---
+function lectureContext() {
+  const steps = LECTURE.steps.map((s, i) => `${i + 1}단계${s.board ? ` 「${s.board.title}」` : ''}: ${s.say}`).join('\n');
+  const quiz = (LECTURE.quiz || []).map((z, i) => `퀴즈 ${i + 1}: ${z.question} (정답: ${z.choices[z.answer]})`).join('\n');
+  return `오늘 강의: 「${LECTURE.title}」\n\n[강의 내용]\n${steps}${quiz ? `\n\n[강의 끝 퀴즈]\n${quiz}` : ''}`;
+}
+function systemPrompt() {
+  return `당신은 3D 강의실 웹 앱 '머스크의 구조교실'에서 대학 구조역학 강의를 하는 교수입니다. 수업을 처음 듣는 대학교 1~2학년 학생이 강의 중에 손을 들고 질문합니다.
+
+답변 방식:
+- 친절한 교수님 말투의 한국어 존댓말로, 말로 설명하듯이 4~7문장 정도로 답합니다.
+- 답은 화면 아래 자막으로 그대로 나오므로 마크다운, 글머리표, 표, 줄바꿈 서식 없이 평범한 문장으로만 씁니다. 수식은 wL²/8, R_B = 3wL/8 처럼 간단히 씁니다.
+- 가능하면 오늘 강의의 비유나 예제(예: 의자와 탁자, 고정단·롤러 보)와 연결해서 설명합니다.
+- 강의 범위를 벗어난 질문도 구조역학 지식으로 짧게 답하되, 확실하지 않은 내용은 추측하지 말고 교재나 담당 교수님께 확인해 보라고 말합니다.
+- 퀴즈 정답을 바로 묻는 질문에는 정답 번호를 알려 주기보다 생각할 실마리를 줍니다.
+
+${lectureContext()}`;
+}
+async function getClient(key) {
+  if (qa.client && qa.clientKey === key) return qa.client;
+  const mod = await import(SDK_URL);
+  const Anthropic = mod.default || mod.Anthropic;
+  qa.client = new Anthropic({ apiKey: key, dangerouslyAllowBrowser: true });   // 사용자 본인 키, 이 브라우저에서만 사용
+  qa.clientKey = key; qa.Anthropic = Anthropic;
+  return qa.client;
+}
+async function aiAnswer(q, onText) {
+  const key = getKey();
+  const client = await getClient(key);
+  if (qa.historyLecture !== LECTURE || qa.history.length >= 20) { qa.history = []; qa.historyLecture = LECTURE; }   // 강의가 바뀌거나 길어지면 새 대화로 시작 (기존 기록은 고치지 않음)
+  const where = lec.i >= 0 ? (() => { const it = lec.seq[lec.i]; return it.kind === 'step' ? `${lec.i + 1}단계 「${(boardFor(lec.i) || {}).title || ''}」` : it.kind === 'quiz' ? `퀴즈 ${it.qi + 1}번 푸는 중` : '퀴즈 결과'; })() : '강의 시작 전';
+  const userMsg = { role: 'user', content: `[지금 강의 진행 위치: ${where}]\n질문: ${q}` };
+  const stream = client.beta.messages.stream({
+    model: AI_MODEL,
+    max_tokens: 16000,
+    betas: ['server-side-fallback-2026-07-01'],
+    fallbacks: 'default',
+    output_config: { effort: 'low' },
+    system: systemPrompt(),
+    messages: [...qa.history, userMsg],
+  });
+  stream.on('text', (delta, snapshot) => onText(snapshot));
+  const msg = await stream.finalMessage();
+  if (msg.stop_reason === 'refusal') return { text: '미안해요, 그 질문에는 답하기 어려워요. 강의 내용과 관련된 다른 질문을 해 주세요.', refused: true };
+  qa.history.push(userMsg, { role: 'assistant', content: msg.content });
+  return { text: msg.content.filter(b => b.type === 'text').map(b => b.text).join('').trim() };
+}
+function aiErrorText(err) {
+  const A = qa.Anthropic;
+  if (A && err instanceof A.AuthenticationError) return 'API 키가 올바르지 않아요. 질문창의 AI 설정에서 키를 다시 확인해 주세요.';
+  if (A && err instanceof A.PermissionDeniedError) return '이 API 키로는 이 모델을 쓸 수 없어요. 키의 권한을 확인해 주세요.';
+  if (A && err instanceof A.RateLimitError) return '지금 질문이 너무 많이 몰렸어요. 잠시 후 다시 물어봐 주세요.';
+  if (A && err instanceof A.APIConnectionError) return '인터넷 연결 문제로 답을 받지 못했어요. 연결을 확인하고 다시 물어봐 주세요.';
+  if (A && err instanceof A.APIError) return `답을 받는 중 문제가 생겼어요 (${err.status || '오류'}). 잠시 후 다시 시도해 주세요.`;
+  return '답을 받는 중 문제가 생겼어요. 잠시 후 다시 시도해 주세요.';
+}
+
+async function askQuestion(text) {
+  const q = String(text || '').trim();
+  if (!q || qa.busy) return;
+  qa.busy = true; askSend.disabled = true; askInput.value = '';
+  addLog('me', q);
+  stopDance();
+  if (lec.phase === 'point') { lec.boardShown = true; if (lec.nextBoard) showOnBoard(lec.nextBoard, false); }
+  const useAI = !!getKey();
+  if (!useAI) {
+    const ans = localAnswer(q);
+    addLog('prof', ans);
+    say(ans, 'Talking');
+  } else {
+    lec.phase = 'thinking'; lec.text = ''; setSubtitle('교수님이 생각하고 있어요…');
+    teacherDo(teacher.actions.Thinking ? 'Thinking' : 'Idle');
+    const p = addLog('prof', '생각하는 중…');
+    let started = false;
+    try {
+      const res = await aiAnswer(q, snap => {
+        if (!started) { started = true; say('', 'Talking'); lec.streaming = true; }
+        lec.text = snap; p.textContent = snap;
+      });
+      lec.streaming = false;
+      if (!started || res.refused) { say(res.text, 'Talking'); }
+      else lec.text = res.text;
+      p.textContent = res.text;
+    } catch (err) {
+      console.error('[ask] AI 답변 실패:', err);
+      lec.streaming = false;
+      const t = aiErrorText(err) + ' 대신 강의 내용에서 찾아볼게요. ' + localAnswer(q);
+      p.textContent = t; say(t, 'Talking');
+    }
+  }
+  qa.busy = false; askSend.disabled = false;
+}
+askSend.addEventListener('click', () => askQuestion(askInput.value));
+askInput.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) { e.preventDefault(); askQuestion(askInput.value); } });
+document.getElementById('askBack').addEventListener('click', () => { if (lec.i >= 0) goStep(lec.i); });
+function openAsk() { askEl.hidden = false; document.getElementById('askBtn').setAttribute('aria-pressed', 'true'); renderChips(); updateAskMode(); askInput.focus(); }
+function closeAsk() { askEl.hidden = true; document.getElementById('askBtn').setAttribute('aria-pressed', 'false'); }
+document.getElementById('askBtn').addEventListener('click', () => askEl.hidden ? openAsk() : closeAsk());
+document.getElementById('askClose').addEventListener('click', closeAsk);
+updateAskMode();
+
+// 강의를 바꾸면 노트·질문 기록도 그 강의 것으로
+const _loadLecture = loadLecture;
+loadLecture = function (L) { _loadLecture(L); loadNotes(); qa.history = []; askLog.innerHTML = ''; if (!askEl.hidden) renderChips(); };
+
+
+// 테스트용: ?note=demo 노트 열기, ?ask=질문 질문창 열고 질문
+{ const q = new URLSearchParams(location.search);
+  if (q.has('note')) { openNotebook(); if (q.get('note') === 'demo') { const p = []; for (let x = 120; x < 700; x += 10) p.push(x, 820 + Math.round(Math.sin(x/40)*30)); notes.pages[0].items = [{ t: 'pen', c: 'red', w: 5, p }]; document.getElementById('noteCopy').click(); } }
+  if (q.has('ask')) { openAsk(); askQuestion(q.get('ask')); } }
 
 /* ---------- 루프 ---------- */
 const clockHands = window.__clockHands;
