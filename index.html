@@ -145,7 +145,22 @@ window.normalizeLecture = function (o) {
   #ask .ask-input{display:flex;gap:6px;align-items:stretch}
   #ask #askSend{background:var(--accent);font-weight:700}
   #ask .ask-back{align-self:flex-start;font-size:12px}
-  #lecture .lec-nav .lec-ask{margin-right:auto;background:rgba(255,209,102,.18);color:#ffe3a3}
+  #lecture .lec-nav .lec-ask{background:rgba(255,209,102,.18);color:#ffe3a3}
+  #lecture .lec-nav .lec-pr{margin-right:auto;background:rgba(155,227,181,.16);color:#bff0cf}
+  #lecture.practicing #lecPrev,#lecture.practicing #lecNext,#lecture.practicing #prBtn{display:none}
+  #lecture.practicing .lec-nav .lec-ask{margin-right:auto}
+  #lecture .lec-practice{display:grid;gap:6px}
+  #lecture .pr-row{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+  #lecture .pr-row label{font-weight:700;font-size:15px}
+  #lecture #prAnswer{width:140px;background:rgba(0,0,0,.3);color:var(--hud-fg);border:1px solid rgba(255,255,255,.25);border-radius:8px;padding:7px 10px;font:inherit;font-size:15px;font-variant-numeric:tabular-nums}
+  #lecture .pr-unit{color:var(--hud-sub);min-width:3em}
+  #lecture .lec-practice button{background:rgba(255,255,255,.1);color:var(--hud-fg);border:0;border-radius:8px;padding:7px 12px;font:inherit;font-size:13px;cursor:pointer}
+  #lecture .lec-practice button:hover{background:rgba(255,255,255,.2)}
+  #lecture .lec-practice button.primary{background:var(--accent);font-weight:700}
+  #lecture .pr-stat{margin-left:auto;font-size:12px;color:var(--hud-sub);font-variant-numeric:tabular-nums}
+  #lecture .pr-msg{margin:0;font-size:13px;min-height:1.2em;color:var(--hud-sub)}
+  #lecture .pr-msg.ok{color:#9be3b5;font-weight:700}
+  #lecture .pr-msg.bad{color:#ff9b8f}
   #lecture .lec-nav .lec-ask[aria-pressed="true"]{background:#ffd166;color:#1a1d22}
   html,body{margin:0;height:100%;overflow:hidden;background:#1a1d22;font-family:'Noto Sans KR',system-ui,sans-serif}
   canvas{display:block;cursor:grab;touch-action:none}
@@ -354,8 +369,25 @@ window.normalizeLecture = function (o) {
   </div>
   <p class="lec-text" id="lecText" aria-live="polite"></p>
   <div class="lec-quiz" id="lecQuiz" hidden></div>
+  <div class="lec-practice" id="lecPractice" hidden>
+    <div class="pr-row">
+      <label for="prAnswer" id="prLabel">답 =</label>
+      <input id="prAnswer" type="text" inputmode="decimal" autocomplete="off" spellcheck="false" placeholder="숫자로 입력">
+      <span id="prUnit" class="pr-unit"></span>
+      <button type="button" id="prCheck" class="primary">채점</button>
+      <span id="prStat" class="pr-stat"></span>
+    </div>
+    <div class="pr-row">
+      <button type="button" id="prHint">힌트</button>
+      <button type="button" id="prSolve">풀이 보기</button>
+      <button type="button" id="prNew">새 문제</button>
+      <button type="button" id="prEnd">끝내기</button>
+    </div>
+    <p id="prMsg" class="pr-msg" role="status"></p>
+  </div>
   <div class="lec-nav">
     <button id="askBtn" type="button" class="lec-ask" aria-pressed="false">✋ 질문하기</button>
+    <button id="prBtn" type="button" class="lec-pr">✏ 계산 연습</button>
     <button id="lecPrev">◀ 이전</button>
     <button id="lecNext" class="primary">강의 시작 ▶</button>
   </div>
@@ -581,7 +613,7 @@ const kt = k => Math.max(k, 0.8);          // 작은 그림에서도 글씨는 �
 // 공통: 박스 안에 보 하나 그리기
 function beamScene(g, x, y, w, h, o = {}) {
   const k = h/470, x1 = x + 0.14*w, x2 = x + 0.86*w, yb = y + 0.5*h;
-  if (o.load !== false) bUDL(g, x1, x2, yb, k);
+  if (o.load !== false) bUDL(g, x1, x2, yb, k, o.wLabel || 'w');
   g.strokeStyle = INK.black; g.lineWidth = 7*k; bLine(g, x1, yb, x2, yb);
   if (o.left === 'pin') bPin(g, x1, yb, k); else bFixed(g, x1, yb, k);
   if (o.right === 'roller') bRoller(g, x2, yb, k);
@@ -1637,6 +1669,7 @@ function goStep(i) {
 
 // 말하기: 자막 + (켜져 있으면) 음성 + 애니메이션. 음성/자막이 끝나면 Idle
 function say(text, anim = 'Talking', onDone = null) {
+  if (lec.phase === 'point' && !lec.boardShown && lec.nextBoard) { lec.boardShown = true; showOnBoard(lec.nextBoard, false); }   // 가리키는 중에 다른 말을 시작해도 칠판 내용은 띄움
   stopSpeech();
   lec.text = text; lec.chars = 0; lec.shown = -1; setSubtitle('');
   lec.phase = 'talk'; lec.hold = 0; lec.talkAnim = anim; lec.onDone = onDone;
@@ -2181,7 +2214,7 @@ async function aiAnswer(q, onText) {
   const key = getKey();
   const client = await getClient(key);
   if (qa.historyLecture !== LECTURE || qa.history.length >= 20) { qa.history = []; qa.historyLecture = LECTURE; }   // 강의가 바뀌거나 길어지면 새 대화로 시작 (기존 기록은 고치지 않음)
-  const where = lec.i >= 0 ? (() => { const it = lec.seq[lec.i]; return it.kind === 'step' ? `${lec.i + 1}단계 「${(boardFor(lec.i) || {}).title || ''}」` : it.kind === 'quiz' ? `퀴즈 ${it.qi + 1}번 푸는 중` : '퀴즈 결과'; })() : '강의 시작 전';
+  const where = (typeof practice !== 'undefined' && practice.active && practice.prob) ? `계산 연습 문제 푸는 중 — ${practice.prob.text.join(' ')} / 구할 값: ${practice.prob.desc}` : lec.i >= 0 ? (() => { const it = lec.seq[lec.i]; return it.kind === 'step' ? `${lec.i + 1}단계 「${(boardFor(lec.i) || {}).title || ''}」` : it.kind === 'quiz' ? `퀴즈 ${it.qi + 1}번 푸는 중` : '퀴즈 결과'; })() : '강의 시작 전';
   const userMsg = { role: 'user', content: `[지금 강의 진행 위치: ${where}]\n질문: ${q}` };
   const stream = client.beta.messages.stream({
     model: AI_MODEL,
@@ -2257,11 +2290,185 @@ const _loadLecture = loadLecture;
 loadLecture = function (L) { _loadLecture(L); loadNotes(); qa.history = []; askLog.innerHTML = ''; if (!askEl.hidden) renderChips(); };
 
 
+/* ---------- 계산 연습 (변형일치법 문제를 숫자를 바꿔 가며 만들어 냄) ---------- */
+const practice = { active: false, n: 0, solved: 0, prob: null, lastType: '', savedScreen: 1 };
+const prWrap = document.getElementById('lecPractice'), prInput = document.getElementById('prAnswer');
+const prLabel = document.getElementById('prLabel'), prUnit = document.getElementById('prUnit'), prMsg = document.getElementById('prMsg'), prStat = document.getElementById('prStat');
+const pick = arr => arr[Math.floor(Math.random()*arr.length)];
+const fmt = x => { const r = Math.round(x*100)/100; return (Object.is(r, -0) ? 0 : r).toLocaleString('ko-KR', { maximumFractionDigits: 2 }); };
+
+// 그림: 숫자가 들어간 보
+function prDiagram(pr) {
+  return (g, x, y, w, h) => {
+    if (pr.type === 'cont') {
+      const s = beamScene(g, x, y, w, h, { left: 'pin', right: 'roller', labels: false, wLabel: `w = ${pr.w} kN/m` });
+      const xm = (s.x1 + s.x2)/2; bRoller(g, xm, s.yb, s.k);
+      [['A', s.x1 - 20], ['B', xm - 14], ['C', s.x2 + 10]].forEach(([t, tx]) => bText(g, t, tx, s.yb - 24*s.k, INK.black, 52));
+      bDim(g, s.x1, xm, s.yb + 150*s.k, s.k, `L = ${pr.L} m`); bDim(g, xm, s.x2, s.yb + 150*s.k, s.k, `L = ${pr.L} m`);
+      return;
+    }
+    if (pr.type === 'udl') {
+      const s = beamScene(g, x, y, w, h, { left: 'fixed', right: 'roller', wLabel: `w = ${pr.w} kN/m` });
+      bDim(g, s.x1, s.x2, s.yb + 160*s.k, s.k, `L = ${pr.L} m`);
+      return;
+    }
+    const s = beamScene(g, x, y, w, h, { left: 'fixed', right: 'roller', load: false });
+    const xp = s.x1 + (s.x2 - s.x1)*pr.a/pr.L;
+    g.strokeStyle = INK.red; g.lineWidth = 5; drawArrow(g, xp, s.yb - 150, xp, s.yb - 8, 18);
+    bText(g, `P = ${pr.P} kN`, xp, s.yb - 165, INK.red, 54, 'center');
+    bDim(g, s.x1, xp, s.yb + 120, s.k, `a = ${pr.a} m`);
+    bText(g, `L = ${pr.L} m`, s.x2 - 10, s.yb + 205, INK.black, 50, 'right');
+  };
+}
+
+// 문제 만들기 (유형 4가지, 숫자는 매번 무작위)
+function makeProblem() {
+  const types = ['udl', 'mid', 'point', 'cont'].filter(t => t !== practice.lastType);
+  const type = pick(types); practice.lastType = type;
+  const L = pick([4, 5, 6, 8]);
+  let pr;
+  if (type === 'udl') {
+    const w = pick([10, 12, 15, 16, 20, 24, 30]);
+    const d1 = w*L**4/8, c2 = L**3/3, RB = d1/c2, RA = w*L - RB, MA = w*L*L/2 - RB*L;
+    pr = { type, w, L, RB, RA, MA, ask: pick(['RB', 'RB', 'RA', 'MA']),
+      text: [`• A는 고정단, B는 롤러인 보`, `• 등분포하중  w = ${w} kN/m,  L = ${L} m,  EI 일정`],
+      sayIntro: `A는 고정단, B는 롤러인 보에 ${w} kN/m의 등분포하중이 걸려 있어요. 길이는 ${L} m입니다.`,
+      hint: 'B점 롤러 반력 R_B를 여분력으로 잡고 없애면 캔틸레버가 남아요. 끝 처짐 wL⁴/8EI 와 R_B·L³/3EI 를 같게 놓아 보세요.',
+      steps: [
+        '① 여분력 R_B 제거 → 캔틸레버',
+        `② δB1 = wL⁴/8EI = ${w}×${L}⁴/8EI = ${fmt(d1)}/EI  (↓)`,
+        `③ δB2 = R_B·L³/3EI = ${fmt(c2)}·R_B/EI  (↑)`,
+        { text: `④ δB1 = δB2  →  R_B = ${fmt(RB)} kN  (= 3wL/8)`, color: 'red' },
+        `⑤ R_A = wL − R_B = ${fmt(RA)} kN,   M_A = wL²/2 − R_B·L = ${fmt(MA)} kN·m`,
+      ] };
+  } else if (type === 'mid' || type === 'point') {
+    const P = pick([40, 48, 60, 80, 96, 100, 120]);
+    const a = type === 'mid' ? L/2 : pick([...Array(L - 1).keys()].map(i => i + 1).filter(v => v !== L/2));
+    const d1 = P*a*a*(3*L - a)/6, c2 = L**3/3, RB = d1/c2, RA = P - RB, MA = P*a - RB*L;
+    pr = { type, P, a, L, RB, RA, MA, ask: type === 'mid' ? pick(['RB', 'MA']) : pick(['RB', 'RB', 'RA']),
+      text: [`• A는 고정단, B는 롤러인 보`, `• 집중하중  P = ${P} kN  (A에서 a = ${a} m)`, `• L = ${L} m,  EI 일정`],
+      sayIntro: `A는 고정단, B는 롤러인 보에서 A로부터 ${a} m 떨어진 곳에 ${P} kN의 집중하중이 작용해요. 보 길이는 ${L} m입니다.`,
+      hint: type === 'mid' ? '가운데에 집중하중을 받는 캔틸레버의 끝 처짐은 5PL³/48EI 예요. 이걸 R_B·L³/3EI 와 같게 놓아 보세요.'
+        : '고정단에서 a 떨어진 곳에 집중하중을 받는 캔틸레버의 끝 처짐은 P·a²(3L − a)/6EI 예요. 이걸 R_B·L³/3EI 와 같게 놓아 보세요.',
+      steps: [
+        '① 여분력 R_B 제거 → 캔틸레버',
+        `② δB1 = P·a²(3L − a)/6EI = ${P}×${a}²×${3*L - a}/6EI = ${fmt(d1)}/EI  (↓)`,
+        `③ δB2 = R_B·L³/3EI = ${fmt(c2)}·R_B/EI  (↑)`,
+        { text: `④ δB1 = δB2  →  R_B = ${fmt(RB)} kN` + (type === 'mid' ? '  (= 5P/16)' : ''), color: 'red' },
+        `⑤ R_A = P − R_B = ${fmt(RA)} kN,   M_A = P·a − R_B·L = ${fmt(MA)} kN·m`,
+      ] };
+  } else {
+    const w = pick([10, 12, 15, 16, 20, 24]);
+    const S = 2*L, d1 = 5*w*S**4/384, c2 = S**3/48, RB = d1/c2, RA = (w*S - RB)/2;
+    pr = { type, w, L, RB, RA, RC: RA, ask: pick(['RB', 'RB', 'RA']),
+      text: [`• 2경간 연속보 A(힌지) − B(롤러) − C(롤러)`, `• 등분포하중  w = ${w} kN/m,  경간 L = ${L} m씩,  EI 일정`],
+      sayIntro: `지점 세 개 위에 놓인 2경간 연속보예요. 경간은 ${L} m씩이고, 전체에 ${w} kN/m의 등분포하중이 걸려 있습니다.`,
+      hint: '가운데 지점 B의 반력을 여분력으로 잡으면 길이 2L 단순보가 남아요. 등분포하중 중앙 처짐 5w(2L)⁴/384EI 와 중앙 집중하중 처짐 R_B(2L)³/48EI 를 같게 놓아 보세요.',
+      steps: [
+        '① 여분력 R_B (가운데 지점) 제거 → 길이 2L 단순보',
+        `② δB1 = 5w(2L)⁴/384EI = 5×${w}×${S}⁴/384EI = ${fmt(d1)}/EI  (↓)`,
+        `③ δB2 = R_B(2L)³/48EI = ${fmt(c2)}·R_B/EI  (↑)`,
+        { text: `④ δB1 = δB2  →  R_B = ${fmt(RB)} kN  (= 5wL/4)`, color: 'red' },
+        `⑤ R_A = R_C = (w·2L − R_B)/2 = ${fmt(RA)} kN  (= 3wL/8)`,
+      ] };
+  }
+  const NAMES = { RB: ['R_B', 'B점 반력 R_B', 'kN'], RA: ['R_A', 'A점 반력 R_A', 'kN'], MA: ['M_A', 'A점 고정단 모멘트 M_A (크기)', 'kN·m'] };
+  const [sym, desc, unit] = NAMES[pr.ask];
+  pr.sym = sym; pr.desc = desc; pr.unit = unit; pr.answer = pr[pr.ask];
+  pr.diagram = prDiagram(pr);
+  return pr;
+}
+
+function prBoard(pr) {
+  return { title: `계산 연습 ${practice.n}  ·  변형일치법`, points: [...pr.text, { text: `구하라 :  ${pr.desc}  [${pr.unit}]`, color: 'red', box: true }], diagram: pr.diagram };
+}
+function prSolutionBoard(pr) {
+  return { title: `풀이  ·  계산 연습 ${practice.n}`, points: pr.steps, diagram: pr.diagram };
+}
+// 칠판을 가리킨 뒤 새 내용을 띄우고 설명
+function presentBoard(board, text, anim = 'Talking') {
+  stopSpeech(); stopDance();
+  lec.phase = 'point'; lec.timer = 0; lec.boardShown = false; lec.nextBoard = board; lec.pendingText = text; lec.pendingAnim = anim;
+  setSubtitle(''); teacherDo('Pointing');
+}
+function prUI() {
+  prLabel.textContent = practice.prob ? `${practice.prob.sym} =` : '답 =';
+  prUnit.textContent = practice.prob ? practice.prob.unit : '';
+  prStat.textContent = `문제 ${practice.n} · 맞힘 ${practice.solved}`;
+  lecStep.textContent = `계산 연습 · 변형일치법 · 문제 ${practice.n}`;
+}
+
+function startPractice() {
+  if (!practice.active) {
+    practice.active = true; practice.savedScreen = screenAnim.target;
+    screenAnim.target = 0;                              // 칠판이 보이게 스크린을 올림
+    lecWrap.classList.add('practicing', 'on'); prWrap.hidden = false; lecQuiz.hidden = true;
+    teacher.auto = false; tAuto.checked = false;
+  }
+  practice.n++;
+  const pr = practice.prob = makeProblem(); pr.tries = 0; pr.done = false;
+  prInput.value = ''; prMsg.textContent = ''; prMsg.className = 'pr-msg'; prUI();
+  presentBoard(prBoard(pr), `계산 연습 ${practice.n}번 문제예요. ${pr.sayIntro} 변형일치법으로 ${pr.desc}를 구해 보세요. 답은 소수점 둘째 자리까지 쓰면 돼요.`);
+  setTimeout(() => prInput.focus(), 50);
+}
+function checkPractice() {
+  const pr = practice.prob; if (!pr) return;
+  const v = parseFloat(prInput.value.replace(/,/g, '').replace(/[−–]/g, '-'));
+  if (!isFinite(v)) { prMsg.textContent = '숫자로 답을 적어 주세요. 예: 45 또는 66.67'; prMsg.className = 'pr-msg bad'; return; }
+  const close = (a, b) => Math.abs(a - b) <= Math.max(0.01*Math.abs(b), 0.05);
+  if (close(Math.abs(v), pr.answer)) {
+    if (!pr.done) { pr.done = true; practice.solved++; }
+    prMsg.textContent = `정답! ${pr.sym} = ${fmt(pr.answer)} ${pr.unit}`; prMsg.className = 'pr-msg ok'; prUI();
+    lec.pendingDance = true;
+    say(pr.tries ? `맞았어요! 다시 계산해서 ${pr.sym} = ${fmt(pr.answer)} ${pr.unit}를 정확히 구했네요.` : `정답이에요! ${pr.sym} = ${fmt(pr.answer)} ${pr.unit}. 아주 잘했어요.`, null);
+    return;
+  }
+  pr.tries++;
+  // 자주 하는 실수: 다른 반력 값을 적었는지 확인
+  const others = { RA: 'R_A', RB: 'R_B', MA: 'M_A', RC: 'R_C' };
+  const mixed = Object.keys(others).find(k => k !== pr.ask && pr[k] !== undefined && close(Math.abs(v), pr[k]));
+  let tip = mixed ? `${fmt(v)}은 ${others[mixed]} 값이에요. 이번 문제는 ${pr.sym}를 구해야 해요.` : pr.tries === 1 ? pr.hint
+    : pr.ask !== 'RB' ? `R_B를 먼저 구한 다음 평형방정식으로 ${pr.sym}를 구해 보세요. ${pr.hint}` : `계산을 한 번 더 확인해 보거나 ‘풀이 보기’를 눌러 보세요.`;
+  prMsg.textContent = `아쉬워요, 다시 계산해 보세요. (시도 ${pr.tries}번)`; prMsg.className = 'pr-msg bad';
+  say(`음, ${fmt(v)} ${pr.unit}은 아니에요. ${tip}`, 'Talking');
+}
+function showSolution() {
+  const pr = practice.prob; if (!pr) return;
+  prMsg.textContent = `답: ${pr.sym} = ${fmt(pr.answer)} ${pr.unit}`; prMsg.className = 'pr-msg';
+  const last = pr.ask === 'RB' ? '' : ` 마지막으로 평형방정식에서 ${pr.sym}는 ${fmt(pr.answer)} ${pr.unit}이 됩니다.`;
+  presentBoard(prSolutionBoard(pr), `풀이를 볼게요. 먼저 여분력 R_B를 없애 정정 구조물을 만들고, 하중에 의한 B점 처짐과 R_B에 의한 처짐을 각각 구합니다. B점의 처짐이 0이어야 하니까 두 처짐을 같게 놓으면 R_B는 ${fmt(pr.RB)} kN이에요.${last}`);
+}
+function endPractice() {
+  if (!practice.active) return;
+  practice.active = false; practice.prob = null;
+  lecWrap.classList.remove('practicing'); prWrap.hidden = true;
+  if (lec.i >= 0) { goStep(lec.i); return; }                       // 강의 중이었으면 그 단계로 돌아감
+  lecWrap.classList.remove('on'); screenAnim.target = practice.savedScreen;
+  stopSpeech(); stopDance(); lec.phase = 'ready';
+  showOnBoard(LECTURE.cover, false); teacherDo('Idle');
+  setSubtitle(`계산 연습을 마쳤어요. ${practice.solved}문제를 맞혔습니다. ‘강의 시작’을 누르면 강의를 들을 수 있어요.`);
+  updateLecUI();
+}
+document.getElementById('prBtn').addEventListener('click', startPractice);
+document.getElementById('prCheck').addEventListener('click', checkPractice);
+document.getElementById('prHint').addEventListener('click', () => { const pr = practice.prob; if (pr) say(pr.hint, 'Talking'); });
+document.getElementById('prSolve').addEventListener('click', showSolution);
+document.getElementById('prNew').addEventListener('click', startPractice);
+document.getElementById('prEnd').addEventListener('click', endPractice);
+prInput.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.isComposing) { e.preventDefault(); checkPractice(); } });
+// 강의를 이동하거나 바꾸면 계산 연습은 끝냄
+const _goStep = goStep;
+goStep = function (i) { if (practice.active) { practice.active = false; practice.prob = null; lecWrap.classList.remove('practicing'); prWrap.hidden = true; } _goStep(i); };
+
+const _loadLecture2 = loadLecture;
+loadLecture = function (L) { if (practice.active) { practice.active = false; practice.prob = null; lecWrap.classList.remove('practicing'); prWrap.hidden = true; } _loadLecture2(L); };
+
 // 테스트용: ?note=demo 노트 열기, ?ask=질문 질문창 열고 질문
 { const q = new URLSearchParams(location.search);
   if (q.get('note') === 'type') { openNotebook(); setNoteTool('blue'); setNoteTool('text'); startTyping([300, 420]); typing.ta.value = '타자로 쓴 메모입니다.\n여분력 = 안정에 필요한 것보다 많은 반력'; commitTyping(); startTyping([120, 600]); typing.ta.value = '지금 입력 중인 줄'; placeTypeBox(typing.ta, typing.item); }
   else if (q.has('note')) { openNotebook(); if (q.get('note') === 'demo') { const p = []; for (let x = 120; x < 700; x += 10) p.push(x, 820 + Math.round(Math.sin(x/40)*30)); notes.pages[0].items = [{ t: 'pen', c: 'red', w: 5, p }]; document.getElementById('noteCopy').click(); } }
-  if (q.has('ask')) { openAsk(); askQuestion(q.get('ask')); } }
+  if (q.has('ask')) { openAsk(); askQuestion(q.get('ask')); }
+  if (q.has('practice')) { startPractice(); if (q.has('pans')) { prInput.value = q.get('pans') === 'right' ? String(practice.prob.answer) : q.get('pans'); checkPractice(); } if (q.has('psolve')) showSolution(); for (let k = 0; k < (+q.get('psim') || 0); k++) { updateLecture(0.05); updateBoard(0.05); updateScreen(0.05); } } }
 
 /* ---------- 루프 ---------- */
 const clockHands = window.__clockHands;
