@@ -117,6 +117,8 @@ window.normalizeLecture = function (o) {
   #notebook canvas{position:absolute;inset:0;width:100%;height:100%}
   #noteInk{touch-action:none;cursor:crosshair}
   #noteInk[data-tool="erase"]{cursor:cell}
+  #noteInk[data-tool="text"]{cursor:text}
+  #notebook .note-type{position:absolute;z-index:2;margin:0;padding:0 2px;border:0;outline:1.5px dashed #7aa2e0;outline-offset:2px;border-radius:2px;background:rgba(255,255,255,.35);resize:none;overflow:hidden;box-sizing:border-box;white-space:pre-wrap;overflow-wrap:break-word}
   #notebook .note-msg{margin:0;min-height:1.2em;color:#9be3b5}
   /* 질문 */
   #ask{position:fixed;z-index:20;right:calc(16px + env(safe-area-inset-right,0px));top:calc(262px + env(safe-area-inset-top,0px));width:min(380px,calc(100vw - 32px));max-height:calc(100% - 262px - 245px);min-height:230px;box-sizing:border-box;padding:12px 14px;display:flex;flex-direction:column;gap:8px;color:var(--hud-fg);font-size:13px}
@@ -306,10 +308,11 @@ window.normalizeLecture = function (o) {
     <button type="button" data-tool="blue"><i style="background:#1d4fb8"></i>파랑</button>
     <button type="button" data-tool="red"><i style="background:#c62828"></i>빨강</button>
     <button type="button" data-tool="mark"><i style="background:#ffd640"></i>형광펜</button>
+    <button type="button" data-tool="text">⌨ 타자</button>
     <button type="button" data-tool="erase">지우개</button>
     <button type="button" id="noteUndo">되돌리기</button>
   </div>
-  <div class="note-paper"><canvas id="noteBg" width="840" height="1120"></canvas><canvas id="noteInk" width="840" height="1120"></canvas></div>
+  <div class="note-paper" id="notePaper"><canvas id="noteBg" width="840" height="1120"></canvas><canvas id="noteInk" width="840" height="1120"></canvas></div>
   <div class="note-foot">
     <button type="button" id="noteCopy">칠판 받아 적기</button>
     <button type="button" id="noteSave">이미지로 저장</button>
@@ -1865,7 +1868,9 @@ const noteBg = document.getElementById('noteBg'), noteInk = document.getElementB
 const noteBgCtx = noteBg.getContext('2d'), noteInkCtx = noteInk.getContext('2d');
 const notePageLabel = document.getElementById('notePage'), noteMsg = document.getElementById('noteMsg');
 const noteToolBtns = [...document.querySelectorAll('#notebook [data-tool]')];
-const notes = { key: '', pages: [{ items: [] }], page: 0, tool: 'black', drawing: null, saveTimer: 0, texTimer: 0 };
+const notes = { key: '', pages: [{ items: [] }], page: 0, tool: 'black', color: 'black', drawing: null, editing: null, saveTimer: 0, texTimer: 0 };
+const TYPE_SIZE = 32, LINE_H = 56, ROW0 = 150;     // 타자 글자 크기, 줄 간격, 첫 줄 위치
+const notePaper = document.getElementById('notePaper');
 
 // 3D 노트에 보일 텍스처 (필기 내용이 책상 위 노트에도 나타남)
 const noteTexCanvas = document.createElement('canvas'); noteTexCanvas.width = 420; noteTexCanvas.height = 560;
@@ -1898,14 +1903,14 @@ function strokePath(g, it, s) {
 }
 function drawItem(g, it, s) {
   if (it.t === 'text') {
-    g.fillStyle = NOTE_COLORS[it.c] || NOTE_COLORS.blue; g.font = `${it.size*s}px ${HAND}`;
+    g.fillStyle = NOTE_COLORS[it.c] || NOTE_COLORS.blue; g.font = `${it.size*s}px ${it.f === 'sans' ? SANS : HAND}`;
     it.lines.forEach((l, k) => g.fillText(l, it.x*s, (it.y + k*56)*s));
   } else strokePath(g, it, s);
 }
 function renderInk(g, w, h) {
   g.clearRect(0, 0, w, h);
   const s = w/NOTE_W;
-  (notes.pages[notes.page] || { items: [] }).items.forEach(it => drawItem(g, it, s));
+  (notes.pages[notes.page] || { items: [] }).items.forEach(it => { if (it !== notes.editing) drawItem(g, it, s); });
   if (notes.drawing) drawItem(g, notes.drawing, s);
 }
 function renderNote() {
@@ -1922,6 +1927,7 @@ function scheduleNoteTex(delay = 120) { clearTimeout(notes.texTimer); notes.texT
 
 function notesKey() { return 'musk-notes-v1:' + (LECTURE.id || LECTURE.title); }
 function loadNotes() {
+  if (typeof commitTyping === 'function') commitTyping();
   notes.key = notesKey();
   let data = null; try { data = JSON.parse(localStorage.getItem(notes.key) || 'null'); } catch (e) { data = null; }
   notes.pages = data && Array.isArray(data.pages) && data.pages.length ? data.pages : [{ items: [] }];
@@ -1942,7 +1948,9 @@ function notePoint(e) {
 }
 noteInk.addEventListener('pointerdown', e => {
   if (e.button > 0 && e.pointerType === 'mouse') return;
-  e.preventDefault(); noteInk.setPointerCapture(e.pointerId);
+  e.preventDefault();
+  if (notes.tool === 'text') { startTyping(notePoint(e)); return; }
+  noteInk.setPointerCapture(e.pointerId);
   const t = notes.tool;
   const w = t === 'erase' ? 38 : t === 'mark' ? 30 : (e.pointerType === 'pen' ? 3 + e.pressure*4 : 4.5);
   notes.drawing = { t: t === 'erase' ? 'erase' : t === 'mark' ? 'mark' : 'pen', c: t, w: Math.round(w*10)/10, p: notePoint(e) };
@@ -1962,7 +1970,7 @@ function endNoteStroke() {
 noteInk.addEventListener('pointerup', endNoteStroke);
 noteInk.addEventListener('pointercancel', endNoteStroke);
 
-function setNoteTool(t) { notes.tool = t; noteToolBtns.forEach(b => b.setAttribute('aria-pressed', b.dataset.tool === t)); noteInk.dataset.tool = t; }
+function setNoteTool(t) { commitTyping(); notes.tool = t; if (NOTE_COLORS[t]) notes.color = t; noteToolBtns.forEach(b => b.setAttribute('aria-pressed', b.dataset.tool === t)); noteInk.dataset.tool = t; }
 noteToolBtns.forEach(b => b.addEventListener('click', () => setNoteTool(b.dataset.tool)));
 document.getElementById('noteUndo').addEventListener('click', () => { const it = notes.pages[notes.page].items; if (it.length) { it.pop(); renderNote(); saveNotes(); } });
 const noteClearBtn = document.getElementById('noteClear');
@@ -1998,8 +2006,73 @@ document.getElementById('noteSave').addEventListener('click', () => {
     document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 2000);
   });
 });
+/* 타자로 쓰기: 노트를 누른 줄에 글자 입력 칸이 생김. 이미 쓴 글자를 누르면 고칠 수 있음 */
+let typing = null;
+function textFont(it) { return `${it.size}px ${it.f === 'sans' ? SANS : HAND}`; }
+function textBox(it) {
+  noteInkCtx.font = textFont(it);
+  const w = Math.max(40, ...it.lines.map(l => noteInkCtx.measureText(l).width));
+  return [it.x - 8, it.y - it.size, w + 16, (it.lines.length - 1)*LINE_H + it.size + 14];
+}
+function placeTypeBox(ta, it) {
+  const sc = notePaper.getBoundingClientRect().width/NOTE_W;
+  const lead = (LINE_H - it.size)/2 + it.size*0.86;     // 줄 높이 안에서 글자 기준선까지 거리
+  Object.assign(ta.style, {
+    left: it.x*sc - 2 + 'px', top: (it.y - lead)*sc + 'px', width: (NOTE_W - it.x - 24)*sc + 'px',
+    fontSize: it.size*sc + 'px', lineHeight: LINE_H*sc + 'px', fontFamily: it.f === 'sans' ? SANS : HAND,
+    color: NOTE_COLORS[it.c] || NOTE_COLORS.black,
+  });
+  ta.style.height = 'auto'; ta.style.height = Math.max(LINE_H*sc, ta.scrollHeight) + 'px';
+}
+function startTyping(pt) {
+  commitTyping();
+  const items = notes.pages[notes.page].items;
+  let item = null;
+  for (let i = items.length - 1; i >= 0 && !item; i--) {
+    const it = items[i]; if (it.t !== 'text') continue;
+    const [x, y, w, h] = textBox(it);
+    if (pt[0] >= x && pt[0] <= x + w && pt[1] >= y && pt[1] <= y + h) item = it;
+  }
+  const isNew = !item;
+  if (isNew) {
+    const row = Math.max(1, Math.ceil((pt[1] - ROW0)/LINE_H));
+    const x = pt[0] < 150 ? 110 : Math.min(pt[0], NOTE_W - 160);
+    item = { t: 'text', f: 'sans', c: notes.color, size: TYPE_SIZE, x, y: ROW0 + row*LINE_H - 12, lines: [''], raw: '' };
+    items.push(item);
+  }
+  const ta = document.createElement('textarea');
+  ta.className = 'note-type'; ta.spellcheck = false; ta.setAttribute('aria-label', '노트에 글자 입력');
+  ta.value = item.raw !== undefined ? item.raw : item.lines.join('\n');
+  notePaper.appendChild(ta);
+  typing = { item, ta }; notes.editing = item;
+  placeTypeBox(ta, item);
+  renderInk(noteInkCtx, NOTE_W, NOTE_H);
+  ta.addEventListener('input', () => placeTypeBox(ta, item));
+  ta.addEventListener('keydown', e => { if (e.key === 'Escape' || (e.key === 'Enter' && (e.ctrlKey || e.metaKey))) { e.preventDefault(); commitTyping(); } });
+  ta.addEventListener('blur', () => commitTyping());
+  requestAnimationFrame(() => { ta.focus(); ta.setSelectionRange(ta.value.length, ta.value.length); });
+  noteMsg.textContent = '입력을 마치려면 노트의 다른 곳을 누르거나 Esc (Enter는 줄바꿈)';
+}
+function commitTyping() {
+  if (!typing) return;
+  const { item, ta } = typing; typing = null; notes.editing = null;
+  const raw = ta.value.replace(/\s+$/, ''); ta.remove();
+  for (const pg of notes.pages) {
+    const i = pg.items.indexOf(item); if (i < 0) continue;
+    if (!raw.trim()) pg.items.splice(i, 1);
+    else {
+      item.raw = raw; noteInkCtx.font = textFont(item);
+      item.lines = raw.split('\n').flatMap(par => par ? wrapLines(noteInkCtx, par, NOTE_W - item.x - 30) : ['']);
+    }
+  }
+  noteMsg.textContent = '';
+  renderNote(); saveNotes();
+}
+noteEl.addEventListener('pointerdown', e => { if (e.target.closest('button')) commitTyping(); }, true);
+window.addEventListener('resize', () => { if (typing) placeTypeBox(typing.ta, typing.item); });
+
 function openNotebook() { noteEl.hidden = false; document.getElementById('noteBtn').setAttribute('aria-pressed', 'true'); renderNote(); }
-function closeNotebook() { noteEl.hidden = true; document.getElementById('noteBtn').setAttribute('aria-pressed', 'false'); }
+function closeNotebook() { commitTyping(); noteEl.hidden = true; document.getElementById('noteBtn').setAttribute('aria-pressed', 'false'); }
 document.getElementById('noteBtn').addEventListener('click', () => noteEl.hidden ? openNotebook() : closeNotebook());
 document.getElementById('noteClose').addEventListener('click', closeNotebook);
 setNoteTool('black');
@@ -2186,7 +2259,8 @@ loadLecture = function (L) { _loadLecture(L); loadNotes(); qa.history = []; askL
 
 // 테스트용: ?note=demo 노트 열기, ?ask=질문 질문창 열고 질문
 { const q = new URLSearchParams(location.search);
-  if (q.has('note')) { openNotebook(); if (q.get('note') === 'demo') { const p = []; for (let x = 120; x < 700; x += 10) p.push(x, 820 + Math.round(Math.sin(x/40)*30)); notes.pages[0].items = [{ t: 'pen', c: 'red', w: 5, p }]; document.getElementById('noteCopy').click(); } }
+  if (q.get('note') === 'type') { openNotebook(); setNoteTool('blue'); setNoteTool('text'); startTyping([300, 420]); typing.ta.value = '타자로 쓴 메모입니다.\n여분력 = 안정에 필요한 것보다 많은 반력'; commitTyping(); startTyping([120, 600]); typing.ta.value = '지금 입력 중인 줄'; placeTypeBox(typing.ta, typing.item); }
+  else if (q.has('note')) { openNotebook(); if (q.get('note') === 'demo') { const p = []; for (let x = 120; x < 700; x += 10) p.push(x, 820 + Math.round(Math.sin(x/40)*30)); notes.pages[0].items = [{ t: 'pen', c: 'red', w: 5, p }]; document.getElementById('noteCopy').click(); } }
   if (q.has('ask')) { openAsk(); askQuestion(q.get('ask')); } }
 
 /* ---------- 루프 ---------- */
