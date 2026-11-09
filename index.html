@@ -6,18 +6,29 @@
 <title>머스크의 구조교실</title>
 <script>
 /* =====================================================================
-   강의 내용 데이터 — 여기만 고치면 강의가 바뀝니다.
-   (이전 12장 변형일치법 강의는 '강의데이터_백업_12장_변형일치법.js' 에 보관)
+   강의 목록 — 강의마다 lectures 폴더에 파일 하나 (아래 <script src> 목록)
    ---------------------------------------------------------------------
+   ▶ 강의 추가 방법 1 (코드): lectures 폴더의 파일 하나를 복사해 내용을 바꾸고,
+                              아래 <script src="lectures/새파일.js"> 를 한 줄 추가
+   ▶ 강의 추가 방법 2 (화면): 시작 화면 '강의 자료 추가'에서 JSON 파일을 올림
+                              (같은 형식, 이 브라우저에 저장됨. '선택한 강의 JSON 받기'로 양식을 받을 수 있음)
+
+   강의 하나의 형식:
+   {
+     id    : 'english-id',            (생략 가능)
+     title : '강의 제목',
+     cover : { title, points, diagram }  강의 시작 전 칠판 (생략하면 단계 제목으로 자동 생성)
+     steps : [ 각 단계 ],
+     quiz  : [ 객관식 문제 ],           (생략 가능)
+     ending: '퀴즈 결과 뒤 마무리 인사'  (생략 가능)
+   }
    steps 의 각 단계:
-     say   : 아바타가 하는 말 (화면 아래 자막으로 표시, '음성 켜기' 시 읽어 줌)
-             → 긴 설명은 여기에 씁니다.
+     say   : 아바타가 하는 말 (화면 아래 자막). 긴 설명은 여기에
      board : 칠판에 띄울 내용. null 이면 칠판은 그대로 두고 말만 함
-             → 칠판에는 핵심 키워드와 간단한 도식만 씁니다.
        title   : 칠판 제목
        points  : 핵심 내용 줄 목록. 글자 그대로 쓰임 ('• ' 같은 기호도 직접 씀)
                  강조할 줄은 { text: '...', color: 'red' | 'blue' | 'green', box: true } 처럼 객체로
-       diagram : 오른쪽에 그릴 그림 (없으면 null → 글이 칠판 전체 폭을 씀)
+       diagram : 오른쪽 그림 이름 (없으면 null → 글이 칠판 전체 폭을 씀)
                  'stiffness-compare' 단순보 vs 양단 고정보 처짐 비교
                  'table-analogy'     다리 3개 의자 vs 다리 4개 탁자
                  'statics-compare'   정정 보 vs 부정정 보 비교
@@ -29,164 +40,54 @@
                  'cantilever-point'  캔틸레버 + 끝단 R_B, 처짐 δB2
                  'superposition'     두 경우의 중첩
                  'bmd'               고정-롤러 보의 휨모멘트도
-                 또는 함수 (g, x, y, w, h) => { ...캔버스 2D로 직접 그리기... }
-   cover : 강의를 시작하기 전에 칠판에 적혀 있는 내용
-   quiz  : 강의 마지막 객관식 퀴즈 (아래 quiz 항목의 설명 참고)
+                 (lectures/*.js 파일에서는 함수 (g, x, y, w, h) => {...} 로 직접 그릴 수도 있음)
+   quiz 의 각 문제:
+     question : 문제     choices : 보기 2~5개     answer : 정답 번호 (0부터! 0=①, 1=②, 2=③, 3=④)
+     explain  : 틀렸을 때 해설     praise : 맞혔을 때 한마디 (생략 가능)     diagram : 칠판 그림 (생략 가능)
    ===================================================================== */
-window.LECTURE = {
-  title: '부정정 구조물이란?',
-  cover: {
-    title: '오늘의 주제 :  부정정 구조물',
-    points: [
-      '① 왜 필요할까?',
-      '② 쉬운 비유',
-      '③ 정확한 정의',
-      '④ 예시',
-      '⑤ 자주 하는 실수',
-      '⑥ 한 줄 요약',
-    ],
-    diagram: 'table-analogy',
-  },
-  steps: [
-    // ① 왜 필요한가
-    {
-      say: '자, 오늘은 부정정 구조물이라는 개념을 처음부터 차근차근 알아보겠습니다. 다리나 건물 같은 실제 구조물을 보면, 기둥이나 지점이 꼭 필요한 개수보다 더 많이 들어가 있는 경우가 대부분이에요. 왜 그럴까요? 지점을 하나 더 두거나 끝을 단단히 고정하면 보가 훨씬 덜 처지고 휨모멘트도 줄어들어서, 같은 재료로 더 튼튼하게 만들 수 있거든요. 칠판 그림처럼 같은 하중이라도 양 끝을 고정하면 처짐이 단순보의 5분의 1밖에 안 됩니다. 게다가 한 곳이 손상돼도 다른 곳이 힘을 나눠 받아서 갑자기 무너지지 않아요. 문제는, 이렇게 받쳐 주는 곳이 많아지면 지금까지 배운 평형방정식만으로는 힘을 다 구할 수가 없다는 겁니다. 그래서 부정정 구조물이라는 개념이 필요해요.',
-      board: {
-        title: '① 왜 필요할까?',
-        points: [
-          '• 받침·고정을 더 두면',
-          '    처짐 ↓   휨모멘트 ↓',
-          '• 한 곳이 손상돼도 버팀',
-          { text: '→ 그런데 평형식만으로는 못 푼다!', color: 'red' },
-        ],
-        diagram: 'stiffness-compare',
-      },
-    },
-    // ② 쉬운 비유
-    {
-      say: '쉽게 비유해 볼게요. 다리가 세 개인 의자는 바닥이 조금 울퉁불퉁해도 세 다리가 항상 바닥에 닿습니다. 그래서 앉은 사람의 무게를 각 다리가 얼마씩 받는지는 힘의 평형만 따져도 딱 정해져요. 그런데 다리가 네 개인 식당 탁자는 어떤가요? 가끔 덜컹거리죠. 다리 길이가 조금만 달라도 한 다리가 살짝 뜨고, 그 다리는 힘을 거의 받지 않습니다. 즉 네 다리가 힘을 어떻게 나눠 받는지는 평형만으로는 알 수 없고, 다리 길이나 바닥이 얼마나 눌리는지, 다시 말해 변형을 알아야 정해져요. 의자가 정정 구조물, 탁자가 부정정 구조물이라고 생각하면 됩니다.',
-      board: {
-        title: '② 비유 :  의자 vs 탁자',
-        points: [
-          '• 다리 3개 의자  →  정정',
-          '• 다리 4개 탁자  →  부정정',
-          { text: '힘의 분배 = 변형이 결정', color: 'blue' },
-        ],
-        diagram: 'table-analogy',
-      },
-    },
-    // ③ 정확한 정의
-    {
-      say: '이제 정확하게 정의해 볼게요. 평면 구조물에서 쓸 수 있는 평형방정식은 수평 방향 힘의 합, 수직 방향 힘의 합, 모멘트의 합이 0이라는 세 개뿐입니다. 그런데 구해야 할 반력이나 부재력, 즉 미지수가 이 식의 개수보다 많으면 평형방정식만으로는 답을 정할 수 없어요. 이런 구조물을 부정정 구조물이라고 합니다. 그리고 미지수가 식보다 몇 개 더 많은지를 부정정 차수라고 해요. 칠판 그림에서 위의 단순보는 미지수 3개, 식 3개라서 정정이고, 아래처럼 한쪽을 고정단으로 바꾸면 미지수가 4개가 되어 1차 부정정이 됩니다.',
-      board: {
-        title: '③ 정의',
-        points: [
-          '• 평형방정식 :  ΣH = 0,  ΣV = 0,  ΣM = 0',
-          '• 미지수(반력·부재력)  >  식의 수',
-          { text: '→ 부정정 구조물', color: 'red', box: true },
-          '• 부정정 차수  N = 미지수 − 식의 수',
-        ],
-        diagram: 'statics-compare',
-      },
-    },
-    // ④ 예시 (주변 구조물)
-    {
-      say: '부정정 구조물은 생각보다 훨씬 흔해요. 강을 건너는 다리를 보면 상판이 여러 교각 위에 쭉 이어져 있죠. 이런 걸 연속보라고 하는데, 칠판 위쪽 그림처럼 지점이 세 개면 반력이 네 개라서 1차 부정정입니다. 아래쪽처럼 양 끝을 모두 벽에 고정한 보는 반력이 여섯 개라서 3차 부정정이고요. 그리고 여러분이 지금 앉아 있는 이 건물도 기둥과 보가 단단하게 붙어 있는 라멘 구조라서, 대부분 차수가 높은 부정정 구조물입니다.',
-      board: {
-        title: '④ 예시 :  주변의 부정정 구조물',
-        points: [
-          '• 연속보  →  교량 상판',
-          '• 양단 고정보',
-          '• 라멘  →  건물의 기둥 + 보',
-        ],
-        diagram: 'examples',
-      },
-    },
-    // ④ 예시 (간단한 보)
-    {
-      say: '간단한 예를 하나 직접 볼까요? A는 고정단, B는 롤러인 보에 등분포하중이 걸려 있습니다. 고정단 반력 세 개, 롤러 반력 하나, 합쳐서 네 개니까 1차 부정정이에요. 식이 하나 모자라죠. 그 모자란 식은 어디서 가져올까요? B점은 롤러로 받쳐져 있으니까 위아래로 움직일 수 없다, 즉 B점의 처짐이 0이라는 변형 조건에서 가져옵니다. 이 조건을 쓰면 R B는 8분의 3 w L, R A는 8분의 5 w L로 구해져요. 자세한 계산은 다음 시간에 변형일치법으로 함께 해 봅시다.',
-      board: {
-        title: '④ 예시 :  한쪽 고정, 한쪽 롤러',
-        points: [
-          '• r = 3 + 1 = 4  →  1차 부정정',
-          '• 모자란 식 :  B점 처짐 = 0',
-          { text: 'R_B = 3wL/8 ,   R_A = 5wL/8', color: 'red' },
-        ],
-        diagram: 'propped-beam',
-      },
-    },
-    // ⑤ 자주 하는 실수
-    {
-      say: '처음 배울 때 자주 하는 실수 세 가지를 짚고 갈게요. 첫째, 지점 개수와 반력 개수를 헷갈리는 겁니다. 고정단은 수평, 수직, 모멘트까지 반력이 세 개, 힌지는 두 개, 롤러는 한 개예요. 지점이 두 개라고 반력이 두 개인 게 아닙니다. 둘째, 부정정이라는 말을 불안정하다는 뜻으로 오해하는 경우가 많은데, 오히려 반대예요. 차수가 0보다 작으면 받쳐 주는 게 부족해서 무너지는 불안정 구조물이고, 0이면 정정, 0보다 크면 여유가 있는 부정정 구조물입니다. 셋째, 식이 모자랄 때 평형방정식을 이리저리 더 세우면 풀릴 거라고 생각하는 건데요, 새로 세운 식은 결국 앞의 세 식을 조합한 것이라 새로운 정보가 없어요. 반드시 변형 조건이 필요합니다.',
-      board: {
-        title: '⑤ 자주 하는 실수',
-        points: [
-          '• 지점 개수 ≠ 반력 개수',
-          '    고정단 3 · 힌지 2 · 롤러 1',
-          '• 부정정 ≠ 불안정',
-          { text: '• 평형식을 더 세워도 안 풀림', color: 'red' },
-        ],
-        diagram: 'determinacy-scale',
-      },
-    },
-    // ⑥ 한 줄 요약
-    {
-      say: '오늘 내용을 한 줄로 요약하면, 부정정 구조물은 평형방정식만으로는 부족해서 변형 조건까지 함께 써야 풀 수 있는 구조물입니다. 더 튼튼하고 덜 처지게 하려고 일부러 받침을 더 둔 구조물이고, 몇 차 부정정인지는 미지수 개수에서 식의 개수를 빼서 구해요. 다음 시간에는 이 모자란 식을 변형 조건으로 채우는 대표적인 방법, 변형일치법을 배우겠습니다.',
-      board: {
-        title: '⑥ 한 줄 요약',
-        points: [
-          { text: '부정정 구조물  =  평형방정식 + 변형 조건으로 푸는 구조물', color: 'red', box: true },
-          '• 왜?  →  더 튼튼하고 덜 처지게',
-          '• 몇 차?  →  N = 미지수 − 식의 수',
-          { text: '※ 다음 시간 :  변형일치법', color: 'blue' },
-        ],
-        diagram: null,
-      },
-    },
-    // 마무리 (칠판은 그대로)
-    {
-      say: '그럼 마지막으로 오늘 배운 내용을 퀴즈 세 문제로 확인해 볼까요? 칠판에 문제가 나오면 아래 보기 버튼을 누르거나, 칠판에 적힌 보기를 직접 눌러서 답을 골라 주세요.',
-      board: null,
-    },
-  ],
+window.LECTURES = [];
 
-  // 강의 마지막 객관식 퀴즈 (정답이면 아바타가 춤추고, 틀리면 해설 + '다시 풀기' 버튼)
-  //   question : 문제     choices : 보기 4개     answer : 정답 번호 (0부터 시작! 0=①, 1=②, 2=③, 3=④)
-  //   explain  : 틀렸을 때 해설 (대사, 정답 번호는 말하지 않게 쓰는 것을 권장 — 다시 풀기가 있으므로)     praise : 맞혔을 때 한마디 (생략 가능)     diagram : 칠판 오른쪽 그림 (생략 가능)
-  quiz: [
-    {
-      question: '부정정 구조물에 대한 설명으로 옳은 것은?',
-      choices: [
-        '평형방정식만으로 모든 반력을 구할 수 있다',
-        '부정정 차수가 0보다 작다',
-        '미지수 개수가 평형방정식 개수보다 많다',
-        '항상 불안정해서 무너진다',
-      ],
-      answer: 2,
-      explain: '부정정 구조물은 반력이나 부재력 같은 미지수의 개수가 평형방정식 개수보다 많은 구조물이에요. 1번은 정정 구조물에 대한 설명이고, 2번처럼 차수가 0보다 작으면 받침이 부족한 불안정 구조물입니다. 4번은 반대예요. 부정정 구조물은 여유가 있어서 오히려 안정적입니다.',
-    },
-    {
-      question: '한쪽은 고정단, 다른 쪽은 롤러로 지지된 보의 부정정 차수는?',
-      choices: ['0차 (정정)', '1차', '2차', '3차'],
-      answer: 1,
-      diagram: 'propped-beam',
-      explain: '고정단은 수평, 수직, 모멘트 반력이 세 개, 롤러는 한 개라서 반력이 모두 네 개예요. 평형방정식은 세 개니까 4 빼기 3, 1차 부정정입니다. 지점 개수가 아니라 반력 개수로 세야 해요.',
-    },
-    {
-      question: '1차 부정정보를 풀 때, 모자란 식 하나는 어디서 얻을까?',
-      choices: [
-        '평형방정식을 하나 더 세운다',
-        '하중을 절반으로 나눈다',
-        '재료의 강도를 이용한다',
-        '변형(처짐) 조건을 이용한다',
-      ],
-      answer: 3,
-      explain: '모자란 식은 변형 조건, 즉 적합조건에서 얻습니다. 예를 들어 롤러로 받친 점은 처짐이 0이라는 조건이죠. 평형방정식을 더 세워도 앞의 세 식을 조합한 것일 뿐이라 새로운 정보가 생기지 않아요.',
-    },
-  ],
-  // 퀴즈 결과를 말한 뒤 덧붙일 마무리 인사
-  ending: '다음 시간에는 변형일치법을 배우겠습니다. 오늘 수고했어요!',
+// 강의 데이터 검사 + 빠진 부분 채우기 (화면에서 올린 JSON 에도 사용)
+window.normalizeLecture = function (o) {
+  const errors = [];
+  if (!o || typeof o !== 'object' || Array.isArray(o)) return { errors: ['강의 데이터는 { ... } 형태의 객체여야 해요'] };
+  if (typeof o.title !== 'string' || !o.title.trim()) errors.push('title(강의 제목)이 없어요');
+  if (!Array.isArray(o.steps) || !o.steps.length) errors.push('steps(강의 단계) 목록이 비어 있어요');
+  (Array.isArray(o.steps) ? o.steps : []).forEach((st, i) => {
+    if (!st || typeof st.say !== 'string') errors.push(`${i + 1}단계: say(대사)가 없어요`);
+    else if (st.board != null) {
+      if (typeof st.board !== 'object' || typeof st.board.title !== 'string') errors.push(`${i + 1}단계: board.title(칠판 제목)이 없어요`);
+      else if (st.board.points != null && !Array.isArray(st.board.points)) errors.push(`${i + 1}단계: board.points 는 [ ... ] 목록이어야 해요`);
+    }
+  });
+  if (o.quiz != null && !Array.isArray(o.quiz)) errors.push('quiz 는 [ ... ] 목록이어야 해요');
+  (Array.isArray(o.quiz) ? o.quiz : []).forEach((q, i) => {
+    if (!q || typeof q.question !== 'string') errors.push(`퀴즈 ${i + 1}: question(문제)이 없어요`);
+    else if (!Array.isArray(q.choices) || q.choices.length < 2 || q.choices.length > 5) errors.push(`퀴즈 ${i + 1}: choices 는 보기 2~5개 목록이어야 해요`);
+    else if (!Number.isInteger(q.answer) || q.answer < 0 || q.answer >= q.choices.length) errors.push(`퀴즈 ${i + 1}: answer 는 0~${q.choices.length - 1} 사이 숫자여야 해요 (0 = ①)`);
+  });
+  if (errors.length) return { errors };
+  const L = Object.assign({}, o, { quiz: o.quiz || [] });
+  if (!L.cover) L.cover = { title: L.title, points: L.steps.filter(s => s.board && s.board.title).slice(0, 6).map(s => '• ' + s.board.title), diagram: null };
+  return { lecture: L, errors };
 };
+</script>
+<!-- 기본 강의 파일 (새 강의 파일을 만들면 여기에 한 줄 추가) -->
+<script src="lectures/indeterminate-intro.js"></script>
+<script src="lectures/consistent-deformation.js"></script>
+<script>
+// 기본 강의 + 이 브라우저에서 추가한 강의를 합치고, 처음 보여 줄 강의를 고름
+(function () {
+  const ok = [];
+  window.LECTURES.forEach(o => { const r = normalizeLecture(o); if (r.lecture) ok.push(r.lecture); else console.warn('[lecture] 강의 파일 오류:', o && o.title, r.errors); });
+  let saved = [];
+  try { saved = JSON.parse(localStorage.getItem('musk-lectures-v1') || '[]'); } catch (e) { saved = []; }
+  (Array.isArray(saved) ? saved : []).forEach(o => { const r = normalizeLecture(o); if (r.lecture) { r.lecture.__user = true; ok.push(r.lecture); } });
+  window.LECTURES = ok;
+  let want = new URLSearchParams(location.search).get('lecture');
+  if (!want) { try { want = localStorage.getItem('musk-last-lecture'); } catch (e) {} }
+  window.LECTURE = ok.find(l => l.id === want) || ok[0] || { title: '강의 없음', steps: [{ say: '등록된 강의가 없습니다.', board: null }], quiz: [], cover: null };
+})();
 </script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=Nanum+Pen+Script&family=Noto+Sans+KR:wght@400;700&display=swap" rel="stylesheet">
@@ -205,7 +106,7 @@ window.LECTURE = {
   canvas.drag{cursor:grabbing}
   .panel{background:var(--hud-bg);color:var(--hud-fg);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);border-radius:12px;border:1px solid rgba(255,255,255,.12)}
   /* 시작 화면 */
-  #start{position:fixed;inset:0;z-index:50;display:flex;align-items:center;padding:calc(24px + env(safe-area-inset-top,0px)) max(16px,env(safe-area-inset-right,0px)) calc(24px + env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px));
+  #start{position:fixed;inset:0;z-index:50;display:flex;align-items:safe center;overflow-y:auto;padding:calc(24px + env(safe-area-inset-top,0px)) max(16px,env(safe-area-inset-right,0px)) calc(24px + env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px));
     background:linear-gradient(100deg,rgba(12,16,24,.88) 0%,rgba(12,16,24,.72) 45%,rgba(12,16,24,.25) 100%);backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px);transition:opacity .5s ease}
   #start.leaving{opacity:0;pointer-events:none}
   #start .st-inner{width:min(640px,100%);min-width:0;display:grid;grid-template-columns:minmax(0,1fr);gap:18px;color:var(--hud-fg)}
@@ -214,8 +115,25 @@ window.LECTURE = {
   #start h1{margin:0;font-family:'Black Han Sans','Noto Sans KR',sans-serif;font-weight:400;font-size:clamp(46px,9vw,92px);line-height:1.02;letter-spacing:-.01em;text-wrap:balance}
   #start h1 em{font-style:normal;color:#ffd166}
   #start .st-beam{width:min(420px,100%);height:auto;color:#9fc0f5}
-  #start .st-lesson{margin:0;font-size:17px;line-height:1.6;color:#d7dde6}
-  #start .st-lesson b{color:#fff}
+  #start .st-pick{display:grid;gap:8px;min-width:0}
+  #start .st-list-head{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;font-size:14px;font-weight:700;color:#d7dde6}
+  #start .st-tools{display:flex;gap:6px;flex-wrap:wrap}
+  #start .st-tools button{background:transparent;color:#9fc0f5;border:1px solid rgba(159,192,245,.45);border-radius:8px;padding:5px 10px;font:inherit;font-size:12px;font-weight:400;cursor:pointer}
+  #start .st-tools button:hover{background:rgba(159,192,245,.14)}
+  #start .st-list{list-style:none;margin:0;padding:0 4px 0 0;display:grid;gap:8px;max-height:min(34vh,290px);overflow:auto}
+  #start .st-list li{display:flex;gap:6px;min-width:0}
+  #start .st-item{flex:1;min-width:0;display:grid;gap:3px;text-align:left;background:rgba(255,255,255,.07);border:1.5px solid rgba(255,255,255,.14);border-radius:10px;padding:10px 14px;color:var(--hud-fg);font:inherit;cursor:pointer}
+  #start .st-item:hover{background:rgba(255,255,255,.13)}
+  #start .st-item.on{border-color:#ffd166;background:rgba(255,209,102,.14)}
+  #start .st-item-title{font-size:16px;font-weight:700;overflow-wrap:anywhere}
+  #start .st-item-meta{font-size:12px;color:var(--hud-sub)}
+  #start .st-item.on .st-item-meta{color:#ffe3a3}
+  #start .st-del{flex:none;background:rgba(255,255,255,.07);color:#ffb3a8;border:1px solid rgba(255,140,120,.35);border-radius:10px;padding:0 12px;font:inherit;font-size:12px;cursor:pointer}
+  #start .st-del:hover{background:rgba(255,140,120,.16)}
+  #start .st-msg{margin:0;font-size:13px;line-height:1.5;min-height:1.2em;color:#9be3b5;white-space:pre-line}
+  #start .st-msg.err{color:#ff9b8f}
+  #start.dropping .st-list{outline:2px dashed #ffd166;outline-offset:4px;border-radius:10px}
+  @media (max-height:780px){#start .st-beam{display:none}#start h1{font-size:clamp(40px,7vw,70px)}}
   #start .st-actions{display:flex;gap:10px;flex-wrap:wrap}
   #start .st-actions button{border:0;border-radius:10px;padding:13px 22px;font:inherit;font-size:16px;font-weight:700;cursor:pointer}
   #start .st-primary{background:#ffd166;color:#1a1d22}
@@ -290,12 +208,23 @@ window.LECTURE = {
         <path d="M60 8v22M110 8v22M160 8v22M210 8v22M260 8v22M310 8v22M360 8v22" stroke="#ff8a7a"/>
       </g>
     </svg>
-    <p class="st-lesson">오늘의 강의 <b id="stLesson">부정정 구조물이란?</b><br><span id="stMeta">8단계 설명 + 퀴즈 3문제</span></p>
+    <section class="st-pick" aria-labelledby="stPickTitle">
+      <div class="st-list-head">
+        <span id="stPickTitle">강의 고르기</span>
+        <span class="st-tools">
+          <button type="button" id="stAdd">+ 강의 자료 추가</button>
+          <button type="button" id="stExport">선택한 강의 JSON 받기</button>
+        </span>
+      </div>
+      <ul class="st-list" id="stList"></ul>
+      <input type="file" id="stFile" accept=".json,application/json" hidden>
+      <p class="st-msg" id="stMsg" role="status"></p>
+    </section>
     <div class="st-actions">
       <button type="button" class="st-primary" id="stStart">강의 시작</button>
       <button type="button" class="st-secondary" id="stLook">강의실 둘러보기</button>
     </div>
-    <p class="st-note">강의는 자막으로 진행돼요. 자막 속도는 자막창 오른쪽 위 배속 버튼으로 바꿀 수 있어요.<br><span class="st-load" id="stLoad">교수님 입장 중…</span></p>
+    <p class="st-note">JSON 강의 자료를 이 화면에 끌어다 놓아도 추가돼요. 강의는 자막으로 진행돼요. 자막 속도는 자막창 오른쪽 위 배속 버튼으로 바꿀 수 있어요.<br><span class="st-load" id="stLoad">교수님 입장 중…</span></p>
   </div>
 </div>
 <div id="info" class="panel">
@@ -337,6 +266,7 @@ window.LECTURE = {
   </div>
 </div>
 <div id="views" class="panel">
+  <button id="toList" type="button">강의 목록</button>
   <button data-yaw="90">◀ 창가</button>
   <button data-yaw="0" class="on">칠판</button>
   <button data-yaw="-90">복도 ▶</button>
@@ -1546,6 +1476,22 @@ function resultBoardAndSay() {
   return { board, say, perfect: solved === n };
 }
 
+// 다른 강의로 바꾸기
+function loadLecture(L) {
+  if (lec.i >= 0) {
+    stopSpeech(); stopDance();
+    lec.i = -1; lec.phase = 'ready';
+    lecWrap.classList.remove('on'); screenAnim.target = 1; tAuto.disabled = false;
+    teacher.auto = lec.savedAuto; tAuto.checked = lec.savedAuto;
+    teacherDo('Idle');
+  }
+  window.LECTURE = L;
+  lec.seq = buildSeq();
+  showOnBoard(L.cover, false);
+  setSubtitle(`안녕하세요! 오늘은 「${L.title}」 강의입니다. 아래 ‘강의 시작’을 누르면 시작합니다.`);
+  updateLecUI();
+}
+
 function goStep(i) {
   const n = lec.seq.length;
   if (i >= n) { endLecture(); return; }
@@ -1681,15 +1627,101 @@ updateLecUI();
 
 /* ---------- 시작 화면 ---------- */
 const startEl = document.getElementById('start');
-document.getElementById('stLesson').textContent = LECTURE.title;
-document.getElementById('stMeta').textContent = `${LECTURE.steps.length}단계 설명` + ((LECTURE.quiz || []).length ? ` + 퀴즈 ${LECTURE.quiz.length}문제` : '');
+const USER_KEY = 'musk-lectures-v1', LAST_KEY = 'musk-last-lecture';
+const stList = document.getElementById('stList'), stMsg = document.getElementById('stMsg'), stFile = document.getElementById('stFile');
+function stMessage(text, isErr) { stMsg.textContent = text; stMsg.classList.toggle('err', !!isErr); }
+function lectureMeta(L) { return `${L.steps.length}단계` + ((L.quiz || []).length ? ` · 퀴즈 ${L.quiz.length}문제` : '') + (L.__user ? ' · 직접 추가한 강의' : ' · 기본 강의'); }
+function saveUserLectures() {
+  try { localStorage.setItem(USER_KEY, JSON.stringify(LECTURES.filter(l => l.__user).map(({ __user, ...rest }) => rest))); return true; }
+  catch (e) { return false; }
+}
+function renderLectureList() {
+  stList.innerHTML = '';
+  LECTURES.forEach(L => {
+    const li = document.createElement('li');
+    const b = document.createElement('button');
+    b.type = 'button'; b.className = 'st-item' + (L === LECTURE ? ' on' : ''); b.setAttribute('aria-pressed', L === LECTURE);
+    const t = document.createElement('span'); t.className = 'st-item-title'; t.textContent = L.title;
+    const m = document.createElement('span'); m.className = 'st-item-meta'; m.textContent = lectureMeta(L);
+    b.append(t, m);
+    b.addEventListener('click', () => selectLecture(L));
+    b.addEventListener('dblclick', () => { selectLecture(L); closeStart(true); });
+    li.appendChild(b);
+    if (L.__user) {
+      const del = document.createElement('button');
+      del.type = 'button'; del.className = 'st-del'; del.textContent = '삭제'; del.setAttribute('aria-label', `「${L.title}」 강의 삭제`);
+      del.addEventListener('click', () => removeLecture(L));
+      li.appendChild(del);
+    }
+    stList.appendChild(li);
+  });
+}
+function selectLecture(L) {
+  if (L !== LECTURE) loadLecture(L);
+  try { localStorage.setItem(LAST_KEY, L.id); } catch (e) {}
+  renderLectureList();
+}
+function removeLecture(L) {
+  if (stMsg.dataset.confirm !== L.id) {          // 실수로 지우지 않게 한 번 더 누르게 함
+    stMsg.dataset.confirm = L.id;
+    stMessage(`「${L.title}」을(를) 지우려면 ‘삭제’를 한 번 더 누르세요.`, true);
+    return;
+  }
+  delete stMsg.dataset.confirm;
+  LECTURES.splice(LECTURES.indexOf(L), 1);
+  saveUserLectures();
+  if (L === LECTURE) selectLecture(LECTURES[0]); else renderLectureList();
+  stMessage(`「${L.title}」 강의를 지웠어요.`);
+}
+async function addLectureFiles(files) {
+  let added = 0, last = null; const errs = [];
+  for (const f of files) {
+    let data;
+    try { data = JSON.parse((await f.text()).replace(/^\uFEFF/, '')); }
+    catch (e) { errs.push(`${f.name}: JSON 형식이 아니에요 (${e.message})`); continue; }
+    (Array.isArray(data) ? data : [data]).forEach(o => {
+      const r = normalizeLecture(o);
+      if (!r.lecture) { errs.push(`${f.name}${o && o.title ? ` 「${o.title}」` : ''}: ${r.errors.slice(0, 3).join(' / ')}${r.errors.length > 3 ? ` 외 ${r.errors.length - 3}개` : ''}`); return; }
+      r.lecture.__user = true;
+      r.lecture.id = 'user-' + Date.now().toString(36) + '-' + (added++);
+      LECTURES.push(r.lecture); last = r.lecture;
+    });
+  }
+  if (last) {
+    const saved = saveUserLectures();
+    selectLecture(last);
+    stMessage(`강의 ${added}개를 추가했어요.` + (saved ? '' : ' (이 브라우저에 저장할 수 없어서 새로고침하면 사라져요)') + (errs.length ? '\n' + errs.join('\n') : ''), errs.length > 0);
+  } else if (errs.length) stMessage(errs.join('\n'), true);
+}
+document.getElementById('stAdd').addEventListener('click', () => stFile.click());
+stFile.addEventListener('change', () => { const fs = [...stFile.files]; stFile.value = ''; if (fs.length) addLectureFiles(fs); });
+startEl.addEventListener('dragover', e => { e.preventDefault(); startEl.classList.add('dropping'); });
+startEl.addEventListener('dragleave', e => { if (e.target === startEl) startEl.classList.remove('dropping'); });
+startEl.addEventListener('drop', e => { e.preventDefault(); startEl.classList.remove('dropping'); const fs = [...(e.dataTransfer.files || [])]; if (fs.length) addLectureFiles(fs); });
+document.getElementById('stExport').addEventListener('click', () => {
+  const { __user, ...data } = LECTURE;
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob); a.download = (LECTURE.id && !/^user-/.test(LECTURE.id) ? LECTURE.id : 'lecture') + '.json';
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+  stMessage('선택한 강의를 JSON 파일로 받았어요. 내용을 고쳐서 ‘강의 자료 추가’로 올리면 새 강의가 됩니다.');
+});
+function openStart() {
+  clearTimeout(startEl._t); startEl.hidden = false; startEl.classList.remove('leaving');
+  stMessage('');
+  renderLectureList();
+  document.getElementById('stStart').focus();
+}
+document.getElementById('toList').addEventListener('click', openStart);
+renderLectureList();
 const stLoad = document.getElementById('stLoad');
 const syncLoad = () => { const t = tStatus.textContent; stLoad.textContent = /불러오는 중/.test(t) ? t.replace('아바타 불러오는 중', '교수님 입장 중') : /못했|없어요/.test(t) ? t : '교수님이 준비됐어요.'; };
 new MutationObserver(syncLoad).observe(tStatus, { childList: true, characterData: true, subtree: true }); syncLoad();
 function closeStart(thenLecture) {
   if (startEl.hidden) return;
   startEl.classList.add('leaving');
-  setTimeout(() => { startEl.hidden = true; }, 500);
+  clearTimeout(startEl._t); startEl._t = setTimeout(() => { startEl.hidden = true; }, 500);
   if (thenLecture) goStep(0);
 }
 document.getElementById('stStart').addEventListener('click', () => closeStart(true));
